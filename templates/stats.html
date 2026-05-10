@@ -1514,10 +1514,7 @@
             }
             
             async apiRequest(url) {
-                const token = this.getToken();
-                const fullUrl = url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
-                
-                const response = await fetch(fullUrl);
+                const response = await fetch(url);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -1527,15 +1524,12 @@
             }
             
             async makeRequest(endpoint, options = {}) {
-                const token = this.getToken();
-                const url = endpoint + (endpoint.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
-                
                 const defaultOptions = {
                     headers: { 'Content-Type': 'application/json' },
                     ...options
                 };
                 
-                return await fetch(url, defaultOptions);
+                return await fetch(endpoint, defaultOptions);
             }
             
             showMessage(message, isSuccess) {
@@ -1588,10 +1582,6 @@
                     return !isNaN(num) && num >= 0 && num <= 255 && 
                         !(part.length > 1 && part[0] === '0');
                 });
-            }
-            
-            getToken() {
-                return new URLSearchParams(window.location.search).get('token') || '';
             }
         }
         

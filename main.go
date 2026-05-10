@@ -6,6 +6,7 @@ import (
 	"container/list"
 	"context"
 	"crypto/md5"
+	crand "crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
 	"database/sql"
@@ -68,6 +69,13 @@ const (
 	linkCacheCleanupInterval = 1 * time.Hour
 	maxDBConnections         = 25
 	maxDBIdleConnections     = 10
+	adminSessionCookieName   = "panbridge_admin_session"
+	adminSessionTTL          = 12 * time.Hour
+	probeScoreUnknownPath    = 1
+	probeScoreHoneypotPath   = 8
+	probeScoreBurstAccess    = 3
+	probeScoreSuspiciousUA   = 2
+	probeScoreOddMethod      = 1
 )
 
 var (
@@ -123,6 +131,9 @@ var (
 
 	exactWhitelist = map[string]struct{}{
 		"/":                                 {},
+		"/admin":                            {},
+		"/admin/login":                      {},
+		"/admin/logout":                     {},
 		"/api/search":                       {},
 		"/config":                           {},
 		"/s":                                {},
@@ -145,6 +156,35 @@ var (
 		"/api/blacklist/",
 		"/api/loadbalancer/",
 		"/assets/",
+	}
+
+	honeypotExactPaths = map[string]struct{}{
+		"/.env":                 {},
+		"/.git/config":          {},
+		"/wp-login.php":         {},
+		"/wp-admin":             {},
+		"/phpmyadmin":           {},
+		"/phpmyadmin/index.php": {},
+		"/manager/html":         {},
+		"/server-status":        {},
+		"/actuator":             {},
+		"/boaform/admin":        {},
+		"/cgi-bin/luci":         {},
+		"/admin.php":            {},
+		"/config.bak":           {},
+		"/api/debug":            {},
+	}
+
+	honeypotPrefixPaths = []string{
+		"/.git/",
+		"/.svn/",
+		"/wp-admin/",
+		"/phpmyadmin/",
+		"/vendor/",
+		"/actuator/",
+		"/boaform/",
+		"/cgi-bin/",
+		"/admin/",
 	}
 
 	StandardTimeRanges = map[string]time.Duration{
@@ -1878,6 +1918,38 @@ type WhitelistDecision struct {
 	Rule          string
 }
 
+type HoneypotDecision struct {
+	Path      string
+	IsMatched bool
+	MatchType string
+	Rule      string
+	Score     int
+}
+
+type ProbeRiskAssessment struct {
+	IP         string
+	Path       string
+	Scene      string
+	ScoreDelta int
+	TotalScore int
+	Reason     string
+	Action     string
+	Duration   time.Duration
+	IsHoneypot bool
+}
+
+type probeRiskState struct {
+	Score          int
+	LastSeen       time.Time
+	RecentRequests []time.Time
+}
+
+type ProbeRiskManager struct {
+	mu     sync.Mutex
+	logger *Logger
+	states map[string]*probeRiskState
+}
+
 func detectRequestScene(pathLower string) string {
 	switch {
 	case pathLower == "/api/search" || strings.HasPrefix(pathLower, "/api/search/"):
@@ -1913,6 +1985,139 @@ func evaluateWhitelist(requestPath string) WhitelistDecision {
 	return decision
 }
 
+func evaluateHoneypotPath(requestPath string) HoneypotDecision {
+	normalizedPath := normalizePath(requestPath)
+	pathLower := strings.ToLower(normalizedPath)
+	decision := HoneypotDecision{
+		Path: normalizedPath,
+	}
+	if _, ok := honeypotExactPaths[pathLower]; ok {
+		decision.IsMatched = true
+		decision.MatchType = "exact"
+		decision.Rule = pathLower
+		decision.Score = probeScoreHoneypotPath
+		return decision
+	}
+	for _, prefix := range honeypotPrefixPaths {
+		if strings.HasPrefix(pathLower, prefix) {
+			decision.IsMatched = true
+			decision.MatchType = "prefix"
+			decision.Rule = prefix
+			decision.Score = probeScoreHoneypotPath
+			return decision
+		}
+	}
+	return decision
+}
+
+func NewProbeRiskManager(logger *Logger) *ProbeRiskManager {
+	prm := &ProbeRiskManager{
+		logger: logger,
+		states: make(map[string]*probeRiskState),
+	}
+	go prm.cleanupLoop()
+	return prm
+}
+
+func (prm *ProbeRiskManager) Observe(ip, path, scene, userAgent, method string, honeypot HoneypotDecision) ProbeRiskAssessment {
+	now := time.Now()
+	prm.mu.Lock()
+	defer prm.mu.Unlock()
+
+	state, ok := prm.states[ip]
+	if !ok {
+		state = &probeRiskState{}
+		prm.states[ip] = state
+	}
+
+	cutoff := now.Add(-30 * time.Second)
+	filtered := state.RecentRequests[:0]
+	for _, ts := range state.RecentRequests {
+		if ts.After(cutoff) {
+			filtered = append(filtered, ts)
+		}
+	}
+	state.RecentRequests = append(filtered, now)
+	state.LastSeen = now
+
+	scoreDelta := probeScoreUnknownPath
+	reasons := []string{"访问非白名单路径"}
+	if honeypot.IsMatched {
+		scoreDelta = honeypot.Score
+		reasons = append(reasons, "命中蜜罐路径")
+	} else {
+		reasons = append(reasons, "未知路径")
+	}
+	if len(state.RecentRequests) >= 3 {
+		scoreDelta += probeScoreBurstAccess
+		reasons = append(reasons, "短时高频探测")
+	}
+	if isSuspiciousUserAgent(userAgent) {
+		scoreDelta += probeScoreSuspiciousUA
+		reasons = append(reasons, "可疑User-Agent")
+	}
+	if method != http.MethodGet && method != http.MethodPost {
+		scoreDelta += probeScoreOddMethod
+		reasons = append(reasons, "异常HTTP方法")
+	}
+
+	state.Score += scoreDelta
+	assessment := ProbeRiskAssessment{
+		IP:         ip,
+		Path:       path,
+		Scene:      scene,
+		ScoreDelta: scoreDelta,
+		TotalScore: state.Score,
+		Reason:     strings.Join(reasons, " + "),
+		IsHoneypot: honeypot.IsMatched,
+		Action:     "observe",
+	}
+	switch {
+	case state.Score >= 20:
+		assessment.Action = "permanent_block"
+		assessment.Duration = 0
+	case state.Score >= 12:
+		assessment.Action = "block_24h"
+		assessment.Duration = 24 * time.Hour
+	case state.Score >= 8:
+		assessment.Action = "block_1h"
+		assessment.Duration = time.Hour
+	}
+	return assessment
+}
+
+func (prm *ProbeRiskManager) cleanupLoop() {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		cutoff := time.Now().Add(-24 * time.Hour)
+		prm.mu.Lock()
+		for ip, state := range prm.states {
+			if state.LastSeen.Before(cutoff) {
+				delete(prm.states, ip)
+			}
+		}
+		prm.mu.Unlock()
+	}
+}
+
+func isSuspiciousUserAgent(userAgent string) bool {
+	if userAgent == "" {
+		return false
+	}
+	ua := strings.ToLower(userAgent)
+	patterns := []string{
+		"curl", "wget", "python", "go-http-client", "zgrab", "sqlmap",
+		"nikto", "nmap", "masscan", "gobuster", "dirbuster", "wpscan",
+	}
+	for _, pattern := range patterns {
+		if strings.Contains(ua, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
 type Application struct {
 	configManager             *ConfigManager
 	workerPool                atomic.Value
@@ -1923,6 +2128,7 @@ type Application struct {
 	metricsManager            *MetricsManager
 	blacklistManager          *BlacklistManager
 	geoipService              *GeoIPService
+	probeRiskManager          *ProbeRiskManager
 	passwordProtectionManager *PasswordProtectionManager
 	pgMessageTmpl             *template.Template
 	configTmpl                *template.Template
@@ -1935,6 +2141,7 @@ func (app *Application) MonitoringMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		clientIP := getClientIP(r)
+		userAgent := r.Header.Get("User-Agent")
 		whitelistDecision := evaluateWhitelist(r.URL.Path)
 		requestPath := whitelistDecision.Path
 		if app.blacklistManager.IsBlocked("ip", clientIP) && !strings.HasPrefix(requestPath, "/api/blacklist/unblock") {
@@ -1942,7 +2149,6 @@ func (app *Application) MonitoringMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "拒绝访问", http.StatusForbidden)
 			return
 		}
-		userAgent := r.Header.Get("User-Agent")
 		if userAgent != "" && app.blacklistManager.IsBlocked("user_agent", userAgent) {
 			app.logger.Warn("拒绝黑名单User-Agent访问: UA=%s, IP=%s", userAgent, clientIP)
 			http.Error(w, "拒绝访问", http.StatusForbidden)
@@ -1959,33 +2165,6 @@ func (app *Application) MonitoringMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "拒绝访问", http.StatusForbidden)
 			return
 		}
-		if requestPath == "/" && app.passwordProtectionManager.IsPermanentlyBlocked(clientIP) {
-			app.logger.Warn("拒绝被密码保护永久封禁的IP访问: IP=%s", clientIP)
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.WriteHeader(http.StatusForbidden)
-			fmt.Fprintf(w, `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>访问被拒绝</title>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        h1 { color: #d32f2f; }
-        p { color: #666; line-height: 1.6; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚫 访问被拒绝</h1>
-        <p>您的IP地址 %s 因多次尝试错误密码已被永久封禁。</p>
-        <p>如果您认为这是个错误，请联系网站管理员。</p>
-    </div>
-</body>
-</html>`, clientIP)
-			return
-		}
 		if whitelistDecision.IsWhitelisted {
 			if app.logger.ShouldLog(DebugLevel) {
 				app.logger.Debug("路径命中白名单: scene=%s, match=%s, rule=%s, path=%s",
@@ -1993,20 +2172,21 @@ func (app *Application) MonitoringMiddleware(next http.Handler) http.Handler {
 			}
 		} else {
 			cfg := app.configManager.GetConfig()
-			app.logger.Warn("检测到非白名单路径访问: scene=%s, auto_block=%v, ip=%s, 路径=%s",
-				whitelistDecision.Scene, cfg.AutoBlockIP, clientIP, requestPath)
-			if cfg.AutoBlockIP {
-				app.blacklistManager.Block(clientIP, "ip", 0, "访问非白名单路径: "+requestPath)
-				app.logger.Info("已自动封禁IP: scene=%s, ip=%s, 原因=访问非白名单路径 %s",
-					whitelistDecision.Scene, clientIP, requestPath)
-				http.Error(w, "Not Found", http.StatusNotFound)
-				return
-			} else {
-				app.logger.Warn("自动封禁IP功能已禁用，仅记录警告: scene=%s, ip=%s, 路径=%s",
-					whitelistDecision.Scene, clientIP, requestPath)
-				http.Error(w, "Not Found", http.StatusNotFound)
-				return
+			honeypotDecision := evaluateHoneypotPath(requestPath)
+			assessment := app.probeRiskManager.Observe(
+				clientIP, requestPath, whitelistDecision.Scene, userAgent, r.Method, honeypotDecision,
+			)
+			app.logger.Warn("检测到非白名单路径访问: scene=%s, ip=%s, path=%s, honeypot=%v, score=+%d/%d, action=%s, reason=%s",
+				assessment.Scene, assessment.IP, assessment.Path, assessment.IsHoneypot,
+				assessment.ScoreDelta, assessment.TotalScore, assessment.Action, assessment.Reason)
+			if cfg.AutoBlockIP && assessment.Action != "observe" {
+				blockReason := fmt.Sprintf("%s: %s", assessment.Reason, requestPath)
+				app.blacklistManager.Block(clientIP, "ip", assessment.Duration, blockReason)
+				app.logger.Info("已按风险评分自动封禁IP: scene=%s, ip=%s, action=%s, duration=%s, total_score=%d",
+					assessment.Scene, assessment.IP, assessment.Action, assessment.Duration, assessment.TotalScore)
 			}
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
 		}
 		lrw := NewResponseWriterWrapper(w)
 		next.ServeHTTP(lrw, r)
@@ -2750,6 +2930,7 @@ func NewApplication() (*Application, error) {
 	app.metricsManager = NewMetricsManager()
 	app.blacklistManager = NewBlacklistManager(app.db, app.logger)
 	app.geoipService = NewGeoIPService(app.logger)
+	app.probeRiskManager = NewProbeRiskManager(app.logger)
 	app.passwordProtectionManager = NewPasswordProtectionManager(app.logger)
 	if err := app.initializeTemplates(); err != nil {
 		return nil, fmt.Errorf("模板初始化失败: %w", err)
@@ -2773,11 +2954,11 @@ func NewApplication() (*Application, error) {
 		Transport: globalTransport,
 	}
 	adminToken := os.Getenv("ADMIN_TOKEN")
-	app.authMiddleware = &AuthMiddleware{adminToken: adminToken}
+	app.authMiddleware = NewAuthMiddleware(adminToken)
 	if adminToken == "" {
 		app.logger.Warn("未设置ADMIN_TOKEN，配置API将无保护")
 	} else {
-		app.logger.Info("已设置ADMIN_TOKEN，配置API需要认证")
+		app.logger.Info("已设置ADMIN_TOKEN，后台将使用登录会话认证")
 	}
 	go app.startBlacklistCleanup()
 	app.logger.Info("应用初始化完成")
@@ -3979,6 +4160,19 @@ func (p *WorkerPool) Close() {
 
 type AuthMiddleware struct {
 	adminToken string
+	sessionTTL time.Duration
+	mu         sync.RWMutex
+	sessions   map[string]time.Time
+}
+
+func NewAuthMiddleware(adminToken string) *AuthMiddleware {
+	am := &AuthMiddleware{
+		adminToken: adminToken,
+		sessionTTL: adminSessionTTL,
+		sessions:   make(map[string]time.Time),
+	}
+	go am.cleanupLoop()
+	return am
 }
 
 func secureCompare(a, b string) bool {
@@ -4004,18 +4198,181 @@ func (a *AuthMiddleware) validateToken(token string) bool {
 	return secureCompare(token, expectedHash)
 }
 
+func (a *AuthMiddleware) createSession() (string, error) {
+	tokenBytes := make([]byte, 32)
+	if _, err := crand.Read(tokenBytes); err != nil {
+		return "", err
+	}
+	sessionID := base64.RawURLEncoding.EncodeToString(tokenBytes)
+	a.mu.Lock()
+	a.sessions[sessionID] = time.Now().Add(a.sessionTTL)
+	a.mu.Unlock()
+	return sessionID, nil
+}
+
+func (a *AuthMiddleware) cleanupLoop() {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		now := time.Now()
+		a.mu.Lock()
+		for sessionID, expiry := range a.sessions {
+			if now.After(expiry) {
+				delete(a.sessions, sessionID)
+			}
+		}
+		a.mu.Unlock()
+	}
+}
+
+func (a *AuthMiddleware) isSessionValid(sessionID string) bool {
+	if sessionID == "" {
+		return false
+	}
+	now := time.Now()
+	a.mu.RLock()
+	expiry, ok := a.sessions[sessionID]
+	a.mu.RUnlock()
+	if !ok || now.After(expiry) {
+		if ok {
+			a.mu.Lock()
+			delete(a.sessions, sessionID)
+			a.mu.Unlock()
+		}
+		return false
+	}
+	return true
+}
+
+func isHTTPSRequest(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	return strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+}
+
+func (a *AuthMiddleware) setSessionCookie(w http.ResponseWriter, r *http.Request, sessionID string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     adminSessionCookieName,
+		Value:    sessionID,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   isHTTPSRequest(r),
+		Expires:  time.Now().Add(a.sessionTTL),
+		MaxAge:   int(a.sessionTTL.Seconds()),
+	})
+}
+
+func (a *AuthMiddleware) clearSessionCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     adminSessionCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   isHTTPSRequest(r),
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+	})
+}
+
+func (a *AuthMiddleware) currentSessionID(r *http.Request) string {
+	cookie, err := r.Cookie(adminSessionCookieName)
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
+}
+
+func stripTokenFromURL(u *url.URL) string {
+	if u == nil {
+		return "/config"
+	}
+	clean := *u
+	query := clean.Query()
+	query.Del("token")
+	clean.RawQuery = query.Encode()
+	if clean.Path == "" {
+		clean.Path = "/"
+	}
+	return clean.String()
+}
+
+func isHTMLRequest(r *http.Request) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	accept := r.Header.Get("Accept")
+	return accept == "" || strings.Contains(accept, "text/html")
+}
+
+func sanitizeNextPath(next string) string {
+	next = strings.TrimSpace(next)
+	if next == "" {
+		return "/config"
+	}
+	parsed, err := url.Parse(next)
+	if err != nil {
+		return "/config"
+	}
+	if parsed.IsAbs() || strings.HasPrefix(next, "//") || !strings.HasPrefix(parsed.Path, "/") {
+		return "/config"
+	}
+	query := parsed.Query()
+	query.Del("token")
+	parsed.RawQuery = query.Encode()
+	if parsed.Path == "" {
+		parsed.Path = "/config"
+	}
+	return parsed.String()
+}
+
+func (a *AuthMiddleware) bootstrapSessionFromToken(w http.ResponseWriter, r *http.Request) (bool, error) {
+	token := r.URL.Query().Get("token")
+	if !a.validateToken(token) {
+		return false, nil
+	}
+	sessionID, err := a.createSession()
+	if err != nil {
+		return false, err
+	}
+	a.setSessionCookie(w, r, sessionID)
+	if isHTMLRequest(r) {
+		http.Redirect(w, r, stripTokenFromURL(r.URL), http.StatusFound)
+		return true, nil
+	}
+	return false, nil
+}
+
 func (a *AuthMiddleware) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if a.adminToken == "" {
 			next(w, r)
 			return
 		}
-		token := r.URL.Query().Get("token")
-		if !a.validateToken(token) {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		if a.isSessionValid(a.currentSessionID(r)) {
+			next(w, r)
 			return
 		}
-		next(w, r)
+		redirected, err := a.bootstrapSessionFromToken(w, r)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		if redirected {
+			return
+		}
+		if a.isSessionValid(a.currentSessionID(r)) {
+			next(w, r)
+			return
+		}
+		if isHTMLRequest(r) {
+			target := sanitizeNextPath(r.URL.RequestURI())
+			http.Redirect(w, r, "/admin/login?next="+url.QueryEscape(target), http.StatusFound)
+			return
+		}
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
 }
 
@@ -6537,168 +6894,188 @@ func (app *Application) handleHealthCheck(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(healthStatus)
 }
 
-func (app *Application) handleRoot(w http.ResponseWriter, r *http.Request) {
-	clientIP := getClientIP(r)
-	if app.passwordProtectionManager.IsPermanentlyBlocked(clientIP) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprintf(w, `
-<!DOCTYPE html>
-<html>
+func renderAdminLoginPage(w http.ResponseWriter, nextPath, errorMessage string) {
+	if nextPath == "" {
+		nextPath = "/config"
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	status := http.StatusOK
+	if errorMessage != "" {
+		status = http.StatusUnauthorized
+	}
+	w.WriteHeader(status)
+	fmt.Fprintf(w, `<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-    <title>访问被拒绝</title>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台登录</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        h1 { color: #d32f2f; }
-        p { color: #666; line-height: 1.6; }
+        body { font-family: Arial, sans-serif; background: #f4f7fb; margin: 0; padding: 0; }
+        .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .card { width: 100%%; max-width: 420px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 32px; }
+        h1 { margin: 0 0 10px; font-size: 28px; color: #1f2937; }
+        p.desc { margin: 0 0 24px; color: #6b7280; }
+        .error { margin: 0 0 16px; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 12px; }
+        label { display: block; margin-bottom: 8px; color: #374151; font-weight: 600; }
+        input[type="password"] { width: 100%%; box-sizing: border-box; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 8px; margin-bottom: 18px; }
+        button { width: 100%%; border: 0; border-radius: 8px; padding: 12px 16px; background: #2563eb; color: white; font-size: 16px; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        .tips { margin-top: 16px; color: #6b7280; font-size: 13px; line-height: 1.6; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🚫 访问被拒绝</h1>
-        <p>您的IP地址 %s 因多次尝试错误密码已被永久封禁。</p>
-        <p>如果您认为这是个错误，请联系网站管理员。</p>
+    <div class="wrap">
+        <div class="card">
+            <h1>后台登录</h1>
+            <p class="desc">请输入管理员 Token 登录后台。登录成功后将使用安全 Cookie 维持会话。</p>
+            %s
+            <form method="post" action="/admin/login">
+                <input type="hidden" name="next" value="%s">
+                <label for="token">管理员 Token</label>
+                <input id="token" type="password" name="token" placeholder="请输入 ADMIN_TOKEN" autocomplete="current-password" required>
+                <button type="submit">登录后台</button>
+            </form>
+            <div class="tips">
+                默认登录后会跳转到配置后台：<code>/config</code><br>
+                统计后台地址：<code>/stats</code>
+            </div>
+        </div>
     </div>
 </body>
-</html>`, clientIP)
-		return
-	}
+</html>`, func() string {
+		if errorMessage == "" {
+			return ""
+		}
+		return `<div class="error">` + html.EscapeString(errorMessage) + `</div>`
+	}(), html.EscapeString(nextPath))
+}
+
+func renderHomePage(w http.ResponseWriter, adminLoginRequired bool) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PanBridge</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: linear-gradient(135deg, #eff6ff, #f8fafc); color: #1f2937; }
+        .wrap { max-width: 980px; margin: 0 auto; padding: 60px 24px; }
+        .hero { background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08); padding: 40px; }
+        h1 { margin: 0 0 12px; font-size: 42px; }
+        p { line-height: 1.8; color: #475569; }
+        .actions { margin: 24px 0 32px; display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn { display: inline-block; text-decoration: none; padding: 12px 18px; border-radius: 10px; font-weight: 600; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-secondary { background: #e2e8f0; color: #1e293b; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+        .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; }
+        code { background: #e2e8f0; padding: 2px 6px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="hero">
+            <h1>PanBridge</h1>
+            <p>服务已运行。首页不再作为伪登录入口，真实后台与接口入口如下。</p>
+            <div class="actions">
+                <a class="btn btn-primary" href="%s">进入后台</a>
+                <a class="btn btn-secondary" href="/stats">查看统计</a>
+            </div>
+            <div class="grid">
+                <div class="card">
+                    <h3>ZX 搜索接口</h3>
+                    <p><code>GET /api/search?keyword=关键词</code></p>
+                </div>
+                <div class="card">
+                    <h3>PG 搜索接口</h3>
+                    <p><code>POST /s/</code></p>
+                </div>
+                <div class="card">
+                    <h3>后台入口</h3>
+                    <p><code>/config</code>、<code>/stats</code>%s</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`, func() string {
+		if adminLoginRequired {
+			return "/admin/login"
+		}
+		return "/config"
+	}(), func() string {
+		if adminLoginRequired {
+			return "（需要先通过 /admin/login 登录）"
+		}
+		return ""
+	}())
+}
+
+func (app *Application) handleRoot(w http.ResponseWriter, r *http.Request) {
 	hasSearchParams := r.URL.Query().Get("keyword") != "" || r.URL.Query().Get("q") != ""
 	if hasSearchParams {
 		app.handleZXSearch(w, r)
 		return
 	}
 	if r.Method == http.MethodPost {
-		_ = r.FormValue("password")
-		isBlocked := app.passwordProtectionManager.RecordAttempt(clientIP)
-		if isBlocked {
-			app.blacklistManager.Block(clientIP, "ip", 0, "密码尝试次数过多")
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.WriteHeader(http.StatusForbidden)
-			fmt.Fprintf(w, `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>访问被拒绝</title>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        h1 { color: #d32f2f; }
-        p { color: #666; line-height: 1.6; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚫 访问被拒绝</h1>
-        <p>您的IP地址 %s 因多次尝试错误密码已被永久封禁。</p>
-        <p>如果您认为这是个错误，请联系网站管理员。</p>
-    </div>
-</body>
-</html>`, clientIP)
-			return
-		}
-		remainingAttempts := 10 - app.passwordProtectionManager.GetAttempts(clientIP)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>密码错误</title>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-        .container { max-width: 400px; margin: 0 auto; }
-        .error { color: #d32f2f; margin: 20px 0; }
-        input[type="password"] { 
-            width: 100%%; 
-            padding: 12px; 
-            margin: 10px 0; 
-            border: 1px solid #ddd; 
-            border-radius: 4px; 
-            box-sizing: border-box;
-        }
-        button { 
-            background: #2196F3; 
-            color: white; 
-            border: none; 
-            padding: 12px 24px; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            width: 100%%;
-        }
-        button:hover { background: #1976D2; }
-        .attempts { color: #666; margin-top: 10px; font-size: 14px; }
-        .search-link { margin-top: 20px; }
-        .search-link a { color: #2196F3; text-decoration: none; }
-        .search-link a:hover { text-decoration: underline; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🔒 需要密码</h1>
-        <div class="error">密码错误！</div>
-        <p>剩余尝试次数: %d</p>
-        <form method="post">
-            <input type="password" name="password" placeholder="请输入密码" required>
-            <button type="submit">提交</button>
-        </form>
-        <div class="attempts">注意: 连续10次错误密码将导致IP被永久封禁</div>
-    </div>
-</body>
-</html>`, remainingAttempts)
+		app.handleZXSearch(w, r)
 		return
 	}
-	attempts := app.passwordProtectionManager.GetAttempts(clientIP)
-	remainingAttempts := 10 - attempts
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>需要密码</title>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-        .container { max-width: 400px; margin: 0 auto; }
-        input[type="password"] { 
-            width: 100%%; 
-            padding: 12px; 
-            margin: 10px 0; 
-            border: 1px solid #ddd; 
-            border-radius: 4px; 
-            box-sizing: border-box;
-        }
-        button { 
-            background: #2196F3; 
-            color: white; 
-            border: none; 
-            padding: 12px 24px; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            width: 100%%;
-        }
-        button:hover { background: #1976D2; }
-        .attempts { color: #666; margin-top: 10px; font-size: 14px; }
-        .search-link { margin-top: 20px; }
-        .search-link a { color: #2196F3; text-decoration: none; }
-        .search-link a:hover { text-decoration: underline; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🔒 需要密码</h1>
-        <p>请输入密码以访问此页面</p>
-        <form method="post">
-            <input type="password" name="password" placeholder="请输入密码" required>
-            <button type="submit">提交</button>
-        </form>
-        <div class="attempts">剩余尝试次数: %d</div>
-    </div>
-</body>
-</html>`, remainingAttempts)
+	renderHomePage(w, app.authMiddleware != nil && app.authMiddleware.adminToken != "")
+}
+
+func (app *Application) handleAdminEntry(w http.ResponseWriter, r *http.Request) {
+	if app.authMiddleware != nil && app.authMiddleware.adminToken != "" && !app.authMiddleware.isSessionValid(app.authMiddleware.currentSessionID(r)) {
+		http.Redirect(w, r, "/admin/login", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/config", http.StatusFound)
+}
+
+func (app *Application) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
+	if app.authMiddleware == nil || app.authMiddleware.adminToken == "" {
+		http.Redirect(w, r, "/config", http.StatusFound)
+		return
+	}
+	if app.authMiddleware.isSessionValid(app.authMiddleware.currentSessionID(r)) {
+		http.Redirect(w, r, sanitizeNextPath(r.URL.Query().Get("next")), http.StatusFound)
+		return
+	}
+	nextPath := sanitizeNextPath(r.URL.Query().Get("next"))
+	if r.Method == http.MethodGet {
+		renderAdminLoginPage(w, nextPath, "")
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		renderAdminLoginPage(w, nextPath, "请求解析失败，请重试")
+		return
+	}
+	nextPath = sanitizeNextPath(r.FormValue("next"))
+	token := strings.TrimSpace(r.FormValue("token"))
+	if !app.authMiddleware.validateToken(token) {
+		renderAdminLoginPage(w, nextPath, "管理员 Token 错误")
+		return
+	}
+	sessionID, err := app.authMiddleware.createSession()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	app.authMiddleware.setSessionCookie(w, r, sessionID)
+	http.Redirect(w, r, nextPath, http.StatusFound)
+}
+
+func (app *Application) handleAdminLogout(w http.ResponseWriter, r *http.Request) {
+	if app.authMiddleware != nil {
+		app.authMiddleware.clearSessionCookie(w, r)
+	}
+	http.Redirect(w, r, "/admin/login", http.StatusFound)
 }
 
 func (app *Application) handleZXSearch(w http.ResponseWriter, r *http.Request) {
@@ -7263,7 +7640,6 @@ func (app *Application) handleConfigPage(w http.ResponseWriter, r *http.Request)
 		LinkCheckTimeout     int
 		LoadBalancerConfig   LoadBalancerConfig
 		DefaultsJSON         template.JS
-		Token                string
 		AutoBlockIP          bool
 		LinkCheckAPIURL      string
 		LinkCheckMode        string
@@ -7287,7 +7663,6 @@ func (app *Application) handleConfigPage(w http.ResponseWriter, r *http.Request)
 		LinkCheckTimeout:     cfg.LinkCheckTimeout,
 		LoadBalancerConfig:   cfg.LoadBalancerConfig,
 		DefaultsJSON:         template.JS(cachedDefaultsJSON),
-		Token:                r.URL.Query().Get("token"),
 		AutoBlockIP:          cfg.AutoBlockIP,
 		LinkCheckAPIURL:      cfg.LinkCheckAPIURL,
 		LinkCheckMode:        cfg.LinkCheckMode,
@@ -7344,6 +7719,9 @@ func main() {
 	mux := http.NewServeMux()
 	auth := app.authMiddleware.RequireAuth
 	mux.HandleFunc("/", recoveryMiddleware(app.handleRoot))
+	mux.HandleFunc("/admin", recoveryMiddleware(app.handleAdminEntry))
+	mux.HandleFunc("/admin/login", recoveryMiddleware(app.handleAdminLogin))
+	mux.HandleFunc("/admin/logout", recoveryMiddleware(app.handleAdminLogout))
 	mux.HandleFunc("/api/search", recoveryMiddleware(app.handleZXSearch))
 	mux.HandleFunc("/s/", recoveryMiddleware(app.handlePGSearch))
 	mux.HandleFunc("/health", recoveryMiddleware(app.handleHealthCheck))
@@ -7363,7 +7741,8 @@ func main() {
 	addr := fmt.Sprintf("0.0.0.0:%d", cfg.ServerPort)
 	app.logger.Info("P2T 已就绪 → http://0.0.0.0:%d", cfg.ServerPort)
 	if app.authMiddleware.adminToken != "" {
-		app.logger.Info("管理界面 → http://0.0.0.0:%d/config?token=%s", cfg.ServerPort, app.authMiddleware.adminToken)
+		app.logger.Info("后台登录页 → http://0.0.0.0:%d/admin/login", cfg.ServerPort)
+		app.logger.Info("后台页面 → 登录后访问 /config 与 /stats")
 	} else {
 		app.logger.Info("管理界面 → http://0.0.0.0:%d/config", cfg.ServerPort)
 	}
