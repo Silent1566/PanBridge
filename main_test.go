@@ -216,6 +216,41 @@ func TestRequireAuthRedirectsAndAdminLoginCreatesSession(t *testing.T) {
 	}
 }
 
+func TestConfigAndStatsPagesRender(t *testing.T) {
+	app := newTestApplication(t, true)
+	if err := app.initializeTemplates(); err != nil {
+		t.Fatalf("initializeTemplates failed: %v", err)
+	}
+
+	configReq := httptest.NewRequest(http.MethodGet, "/config", nil)
+	configRec := httptest.NewRecorder()
+	app.handleConfigPage(configRec, configReq)
+	if configRec.Code != http.StatusOK {
+		t.Fatalf("config status mismatch: got %d want %d", configRec.Code, http.StatusOK)
+	}
+	configBody := configRec.Body.String()
+	if !strings.Contains(configBody, "后台参数配置") {
+		t.Fatalf("expected config page title in response")
+	}
+	if strings.Contains(configBody, ".Token") {
+		t.Fatalf("unexpected legacy token placeholder in config page")
+	}
+
+	statsReq := httptest.NewRequest(http.MethodGet, "/stats", nil)
+	statsRec := httptest.NewRecorder()
+	app.handleStatsPage(statsRec, statsReq)
+	if statsRec.Code != http.StatusOK {
+		t.Fatalf("stats status mismatch: got %d want %d", statsRec.Code, http.StatusOK)
+	}
+	statsBody := statsRec.Body.String()
+	if !strings.Contains(statsBody, "后台运行统计") {
+		t.Fatalf("expected stats page title in response")
+	}
+	if !strings.Contains(statsBody, "requestLimitFilter") {
+		t.Fatalf("expected request filter controls in stats page")
+	}
+}
+
 func newTestApplication(t *testing.T, autoBlock bool) *Application {
 	t.Helper()
 	t.Setenv("P2T_DB_PATH", filepath.Join(t.TempDir(), "test.db"))

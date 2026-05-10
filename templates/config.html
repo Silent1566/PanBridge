@@ -82,54 +82,69 @@
       
         .header-content {
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
             position: relative;
             z-index: 2;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 18px;
             width: 100%;
-            padding: 10px 20px;
-        }        
+        }
+
+        .header-main {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
 
         .header-title {
             font-size: 2.2rem;
             font-weight: 700;
             text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-align: center;
             margin: 0;
-        }        
-
-        .header-actions {
-            display: flex;
-            gap: 15px;
-            position: absolute;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
         }
-      
-        .stats-btn {
+
+        .header-subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .header-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .header-link {
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
             color: white;
-            padding: 12px 24px;
-            border-radius: 50px;
+            padding: 10px 16px;
+            border-radius: 999px;
             text-decoration: none;
             font-weight: 600;
-            transition: all 0.3s ease;
+            transition: all 0.25s ease;
             border: 1px solid rgba(255, 255, 255, 0.3);
-            display: flex;
-            align-items: center;
-            gap: 8px;
             white-space: nowrap;
-            position: relative;
         }
-      
-        .stats-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+
+        .header-link:hover {
+            background: rgba(255, 255, 255, 0.28);
+            transform: translateY(-1px);
+        }
+
+        .header-link.active {
+            background: white;
+            color: var(--primary-blue);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
         }
       
         .main-content {
@@ -538,17 +553,17 @@
                 gap: 15px;
                 text-align: center;
             }
-          
-            .header-actions {
-                position: static;
-                justify-content: center;
+
+            
+            .header-main,
+            .header-right {
                 width: 100%;
-                margin-top: 10px;
+                align-items: center;
+                justify-content: center;
             }
-          
-            .stats-btn {
-                padding: 10px 20px;
-                font-size: 0.9rem;
+
+            .header-links {
+                justify-content: center;
             }
           
             .content-area {
@@ -656,14 +671,16 @@
     <div class="app-container">
         <div class="header">
             <div class="header-content">
-                <h1 class="header-title">P2T 参数配置</h1>
-                <div class="header-actions">
-                    <a href="/stats" class="stats-btn">
-                        📊 查看统计数据
-                    </a>
-                    <a href="/admin/logout" class="stats-btn" style="background: rgba(255,255,255,0.15);">
-                        Logout
-                    </a>
+                <div class="header-main">
+                    <h1 class="header-title">后台参数配置</h1>
+                    <div class="header-subtitle">统一管理 PanBridge 的搜索、链路检测与自动防护参数。</div>
+                </div>
+                <div class="header-right">
+                    <div class="header-links">
+                        <a href="/config" class="header-link active">⚙️ 配置后台</a>
+                        <a href="/stats" class="header-link">📊 运行统计</a>
+                        <a href="/admin/logout" class="header-link">🚪 退出登录</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -690,7 +707,7 @@
                         <div class="config-card">
                             <h3 class="param-title">PANSOU_API_URLS</h3>
                             <div class="param-description">
-                                多个API地址用逗号分隔，用于负载均衡。例�? https://api1.example.com,https://api2.example.com
+                                多个 API 地址用逗号分隔，用于负载均衡。例如：https://api1.example.com,https://api2.example.com
                             </div>
                             <div class="input-group">
                                 <input type="text" id="PANSOU_API_URLS" value="{{.PansouAPIURLs}}" placeholder="多个API地址用逗号分隔">
@@ -744,9 +761,10 @@
                         <div class="config-card">
                             <h3 class="param-title">MAX_LINKS_PER_TYPE</h3>
                             <div class="param-description">
-                                每类网盘最大资源数�?                            </div>
+                                每类网盘最大资源数
+                            </div>
                             <div class="input-group">
-                                <input type="number" id="MAX_LINKS_PER_TYPE" value="{{.MaxLinksPerType}}" placeholder="数字，如�?0" min="1" max="100">
+                                <input type="number" id="MAX_LINKS_PER_TYPE" value="{{.MaxLinksPerType}}" placeholder="数字，如：10" min="1" max="100">
                             </div>
                             <div class="btn-group">
                                 <button class="btn btn-primary" data-action="save" data-param="MAX_LINKS_PER_TYPE">
@@ -784,13 +802,13 @@
                         <div class="config-card">
                             <h3 class="param-title">PG_IMAGE_PROXY_MODE</h3>
                             <div class="param-description">
-                                PG图片显示模式：proxy(强制代理)、direct(直接链接)、none(不显示图�?
+                                PG 图片显示模式：proxy（强制代理）、direct（直接链接）、none（不显示图片）
                             </div>
                             <div class="input-group">
                                 <select id="PG_IMAGE_PROXY_MODE">
                                     <option value="proxy" {{if eq .PGImageProxyMode "proxy"}}selected{{end}}>proxy - 强制代理</option>
                                     <option value="direct" {{if eq .PGImageProxyMode "direct"}}selected{{end}}>direct - 直接链接</option>
-                                    <option value="none" {{if eq .PGImageProxyMode "none"}}selected{{end}}>none - 不显示图�?/option>
+                                    <option value="none" {{if eq .PGImageProxyMode "none"}}selected{{end}}>none - 不显示图片</option>
                                 </select>
                             </div>
                             <div class="btn-group">
@@ -806,13 +824,13 @@
                         <div class="config-card">
                             <h3 class="param-title">ZX_IMAGE_PROXY_MODE</h3>
                             <div class="param-description">
-                                ZX图片显示模式：proxy(强制代理)、direct(直接链接)、none(不显示图�?
+                                ZX 图片显示模式：proxy（强制代理）、direct（直接链接）、none（不显示图片）
                             </div>
                             <div class="input-group">
                                 <select id="ZX_IMAGE_PROXY_MODE">
                                     <option value="proxy" {{if eq .ZXImageProxyMode "proxy"}}selected{{end}}>proxy - 强制代理</option>
                                     <option value="direct" {{if eq .ZXImageProxyMode "direct"}}selected{{end}}>direct - 直接链接</option>
-                                    <option value="none" {{if eq .ZXImageProxyMode "none"}}selected{{end}}>none - 不显示图�?/option>
+                                    <option value="none" {{if eq .ZXImageProxyMode "none"}}selected{{end}}>none - 不显示图片</option>
                                 </select>
                             </div>
                             <div class="btn-group">
@@ -831,14 +849,14 @@
                                 关键词过滤，用逗号分隔
                             </div>
                             <div class="input-group">
-                                <input type="text" id="KEYWORDS" value="{{.Keywords}}" placeholder="用逗号分隔，如�?k,hdr,dolby">
+                                <input type="text" id="KEYWORDS" value="{{.Keywords}}" placeholder="用逗号分隔，如：4k,hdr,dolby">
                             </div>
                             <div class="btn-group">
                                 <button class="btn btn-primary" data-action="save" data-param="KEYWORDS">
                                     💾 保存修改
                                 </button>
                                 <button class="btn btn-danger" data-action="clear" data-param="KEYWORDS">
-                                    🗑�?清空内容
+                                    🗑️ 清空内容
                                 </button>
                             </div>
                         </div>
@@ -856,7 +874,7 @@
                                     💾 保存修改
                                 </button>
                                 <button class="btn btn-danger" data-action="clear" data-param="CHANNELS">
-                                    🗑�?清空内容
+                                    🗑️ 清空内容
                                 </button>
                             </div>
                         </div>
@@ -874,7 +892,7 @@
                                     💾 保存修改
                                 </button>
                                 <button class="btn btn-danger" data-action="clear" data-param="PLUGINS">
-                                    🗑�?清空内容
+                                    🗑️ 清空内容
                                 </button>
                             </div>
                         </div>
@@ -885,28 +903,31 @@
                     <h2 class="section-title">进阶配置</h2>
                     <div class="config-grid">
                         <div class="config-card" style="border-left: 4px solid var(--success-color);">
-                            <h3 class="param-title">GeoIP 数据库管�?/h3>
+                            <h3 class="param-title">GeoIP 数据库管理</h3>
                             <div class="param-description">
-                                更新 MaxMind GeoLite2 城市数据库，用于提升IP地理位置识别准确率�?                            </div>
+                                更新 MaxMind GeoLite2 城市数据库，用于提升 IP 地理位置识别准确率。
+                            </div>
                             <div class="btn-group">
                                 <button class="btn btn-success" data-action="update-geoip">
-                                    🌍 在线更新 GeoIP 数据�?                                </button>
+                                    🌍 在线更新 GeoIP 数据库
+                                </button>
                             </div>
                         </div>
 
                         <div class="config-card">
                             <h3 class="param-title">BLOCK_KEYWORDS_CONTAIN</h3>
                             <div class="param-description">
-                                包含屏蔽关键词，多个用逗号分隔。搜索关键词包含这些词中的任意一个，将返回空结果�?                            </div>
+                                包含屏蔽关键词，多个用逗号分隔。搜索关键词包含这些词中的任意一个，将返回空结果。
+                            </div>
                             <div class="input-group">
-                                <input type="text" id="BLOCK_KEYWORDS_CONTAIN" value="{{.BlockKeywordsContain}}" placeholder="如：违禁�?敏感�?非法�?>
+                                <input type="text" id="BLOCK_KEYWORDS_CONTAIN" value="{{.BlockKeywordsContain}}" placeholder="如：违禁,敏感,非法">
                             </div>
                             <div class="btn-group">
                                 <button class="btn btn-primary" data-action="save" data-param="BLOCK_KEYWORDS_CONTAIN">
                                     💾 保存修改
                                 </button>
                                 <button class="btn btn-danger" data-action="clear" data-param="BLOCK_KEYWORDS_CONTAIN">
-                                    🗑�?清空内容
+                                    🗑️ 清空内容
                                 </button>
                             </div>
                         </div>
@@ -914,7 +935,8 @@
                         <div class="config-card">
                             <h3 class="param-title">BLOCK_KEYWORDS_EXACT</h3>
                             <div class="param-description">
-                                完全匹配屏蔽关键词，多个用逗号分隔。搜索关键词完全匹配这些词中的任意一个，将返回空结果�?                            </div>
+                                完全匹配屏蔽关键词，多个用逗号分隔。搜索关键词完全匹配这些词中的任意一个，将返回空结果。
+                            </div>
                             <div class="input-group">
                                 <input type="text" id="BLOCK_KEYWORDS_EXACT" value="{{.BlockKeywordsExact}}" placeholder="如：测试,example,demo">
                             </div>
@@ -923,7 +945,7 @@
                                     💾 保存修改
                                 </button>
                                 <button class="btn btn-danger" data-action="clear" data-param="BLOCK_KEYWORDS_EXACT">
-                                    🗑�?清空内容
+                                    🗑️ 清空内容
                                 </button>
                             </div>
                         </div>
@@ -931,11 +953,12 @@
                         <div class="config-card">
                             <h3 class="param-title">AUTO_BLOCK_IP</h3>
                             <div class="param-description">
-                                Enable risk-scored auto blocking for unknown or honeypot paths. Attack-like requests accumulate score and are blocked when thresholds are reached.
+                                对未知路径和蜜罐路径启用基于风险分数的自动封禁。可疑请求会累计分数，达到阈值后自动拉黑。
+                            </div>
                             <div class="input-group">
                                 <select id="AUTO_BLOCK_IP">
-                                    <option value="true" {{if .AutoBlockIP}}selected{{end}}>true - enable score-based auto block</option>
-                                    <option value="false" {{if not .AutoBlockIP}}selected{{end}}>false - disable (default)</option>
+                                    <option value="true" {{if .AutoBlockIP}}selected{{end}}>true - 启用自动封禁</option>
+                                    <option value="false" {{if not .AutoBlockIP}}selected{{end}}>false - 关闭（默认）</option>
                                 </select>
                             </div>
                             <div class="btn-group">
@@ -954,7 +977,7 @@
                                 Worker任务总超时时间（秒），影响包含链接检测的完整任务
                             </div>
                             <div class="input-group">
-                                <input type="number" id="WORKER_TASK_TIMEOUT" value="{{.WorkerTaskTimeout}}" placeholder="Worker任务总超时（秒），如�?0" min="1" max="300">
+                                <input type="number" id="WORKER_TASK_TIMEOUT" value="{{.WorkerTaskTimeout}}" placeholder="Worker 任务总超时（秒），如：30" min="1" max="300">
                             </div>
                             <div class="btn-group">
                                 <button class="btn btn-primary" data-action="save" data-param="WORKER_TASK_TIMEOUT">
@@ -972,7 +995,7 @@
                                 最大并发数
                             </div>
                             <div class="input-group">
-                                <input type="number" id="MAX_WORKERS" value="{{.MaxWorkers}}" placeholder="最大并发数，如�?0" min="1" max="100">
+                                <input type="number" id="MAX_WORKERS" value="{{.MaxWorkers}}" placeholder="最大并发数，如：10" min="1" max="100">
                             </div>
                             <div class="btn-group">
                                 <button class="btn btn-primary" data-action="save" data-param="MAX_WORKERS">
@@ -987,11 +1010,12 @@
                         <div class="config-card">
                             <h3 class="param-title">LINK_CHECK_ENABLED</h3>
                             <div class="param-description">
-                                是否启用链接有效性检测功�?                            </div>
+                                是否启用链接有效性检测功能
+                            </div>
                             <div class="input-group">
                                 <select id="LINK_CHECK_ENABLED">
-                                    <option value="true" {{if .LinkCheckEnabled}}selected{{end}}>true - 启用链接检�?/option>
-                                    <option value="false" {{if not .LinkCheckEnabled}}selected{{end}}>false - 禁用链接检�?/option>
+                                    <option value="true" {{if .LinkCheckEnabled}}selected{{end}}>true - 启用链接检测</option>
+                                    <option value="false" {{if not .LinkCheckEnabled}}selected{{end}}>false - 禁用链接检测</option>
                                 </select>
                             </div>
                             <div class="btn-group">
@@ -1010,7 +1034,7 @@
                                 链接检测并发数
                             </div>
                             <div class="input-group">
-                                <input type="number" id="LINK_CHECK_WORKERS" value="{{.LinkCheckWorkers}}" placeholder="链接检测并发数，如�?0" min="1" max="500">
+                                <input type="number" id="LINK_CHECK_WORKERS" value="{{.LinkCheckWorkers}}" placeholder="链接检测并发数，如：20" min="1" max="500">
                             </div>
                             <div class="btn-group">
                                 <button class="btn btn-primary" data-action="save" data-param="LINK_CHECK_WORKERS">
@@ -1025,9 +1049,10 @@
                         <div class="config-card">
                             <h3 class="param-title">LINK_CHECK_TIMEOUT</h3>
                             <div class="param-description">
-                                链接检测超时时�?                            </div>
+                                链接检测超时时间（秒）
+                            </div>
                             <div class="input-group">
-                                <input type="number" id="LINK_CHECK_TIMEOUT" value="{{.LinkCheckTimeout}}" placeholder="链接检测超时时间（秒），如�?5" min="1" max="60">
+                                <input type="number" id="LINK_CHECK_TIMEOUT" value="{{.LinkCheckTimeout}}" placeholder="链接检测超时时间（秒），如：5" min="1" max="60">
                             </div>
                             <div class="btn-group">
                                 <button class="btn btn-primary" data-action="save" data-param="LINK_CHECK_TIMEOUT">
@@ -1042,7 +1067,8 @@
                         <div class="config-card">
                             <h3 class="param-title">LINK_CHECK_API_URL</h3>
                             <div class="param-description">
-                                pancheck�?API 地址。留空则使用默认地址 (https://pancheck.banye.tech:7777)�?                            </div>
+                                pancheck API 地址。留空则使用默认地址（https://pancheck.banye.tech:7777）。
+                            </div>
                             <div class="input-group">
                                 <input type="text" id="LINK_CHECK_API_URL" value="{{.LinkCheckAPIURL}}" placeholder="例如：http://127.0.0.1:8080">
                             </div>
@@ -1059,12 +1085,13 @@
                         <div class="config-card">
                             <h3 class="param-title">LINK_CHECK_MODE</h3>
                             <div class="param-description">
-                                链接检测模式选择。自动降级会在pancheck失败时使用旧方式，提供更好的兼容性�?                            </div>
+                                链接检测模式选择。自动降级会在 pancheck 失败时使用旧方式，提供更好的兼容性。
+                            </div>
                             <div class="input-group">
                                 <select id="LINK_CHECK_MODE">
-                                    <option value="auto" {{if eq .LinkCheckMode "auto"}}selected{{end}}>自动降级 (pancheck失败使用旧方�?</option>
-                                    <option value="pancheck" {{if eq .LinkCheckMode "pancheck"}}selected{{end}}>只用pancheck (失败后全部标有效)</option>
-                                    <option value="legacy" {{if eq .LinkCheckMode "legacy"}}selected{{end}}>只用旧方�?(只检测夸�?阿里/UC)</option>
+                                    <option value="auto" {{if eq .LinkCheckMode "auto"}}selected{{end}}>自动降级（pancheck 失败时回退旧方式）</option>
+                                    <option value="pancheck" {{if eq .LinkCheckMode "pancheck"}}selected{{end}}>仅 pancheck（失败后全部标记为有效）</option>
+                                    <option value="legacy" {{if eq .LinkCheckMode "legacy"}}selected{{end}}>仅旧方式（只检测夸克 / 阿里 / UC）</option>
                                 </select>
                             </div>
                             <div class="btn-group">
@@ -1080,13 +1107,13 @@
                         <div class="config-card">
                             <h3 class="param-title">LB_STRATEGY</h3>
                             <div class="param-description">
-                                负载均衡策略：random(随机选择) | round_robin(轮询) | least_conn(最少错�? | response_time(响应时间优先)
+                                负载均衡策略：random（随机）、round_robin（轮询）、least_conn（最少连接）、response_time（响应时间优先）
                             </div>
                             <div class="input-group">
                                 <select id="LB_STRATEGY">
                                     <option value="round_robin" {{if eq .LoadBalancerConfig.Strategy "round_robin"}}selected{{end}}>round_robin - 轮询(推荐)</option>
                                     <option value="random" {{if eq .LoadBalancerConfig.Strategy "random"}}selected{{end}}>random - 随机(推荐)</option>
-                                    <option value="least_conn" {{if eq .LoadBalancerConfig.Strategy "least_conn"}}selected{{end}}>least_conn - 最少错�?/option>
+                                    <option value="least_conn" {{if eq .LoadBalancerConfig.Strategy "least_conn"}}selected{{end}}>least_conn - 最少连接</option>
                                     <option value="response_time" {{if eq .LoadBalancerConfig.Strategy "response_time"}}selected{{end}}>response_time - 响应时间优先</option>
                                 </select>
                             </div>
@@ -1103,11 +1130,12 @@
                         <div class="config-card">
                             <h3 class="param-title">LB_HEALTH_CHECK</h3>
                             <div class="param-description">
-                                是否启用API服务器健康检�?                            </div>
+                                是否启用 API 服务器健康检查
+                            </div>
                             <div class="input-group">
                                 <select id="LB_HEALTH_CHECK">
-                                    <option value="true" {{if .LoadBalancerConfig.HealthCheck}}selected{{end}}>true - 启用健康检�?/option>
-                                    <option value="false" {{if not .LoadBalancerConfig.HealthCheck}}selected{{end}}>false - 禁用健康检�?/option>
+                                    <option value="true" {{if .LoadBalancerConfig.HealthCheck}}selected{{end}}>true - 启用健康检查</option>
+                                    <option value="false" {{if not .LoadBalancerConfig.HealthCheck}}selected{{end}}>false - 禁用健康检查</option>
                                 </select>
                             </div>
                             <div class="btn-group">
@@ -1123,10 +1151,10 @@
                         <div class="config-card">
                             <h3 class="param-title">LB_CHECK_INTERVAL</h3>
                             <div class="param-description">
-                                健康检查间�?�?
+                                健康检查间隔（秒）
                             </div>
                             <div class="input-group">
-                                <input type="number" id="LB_CHECK_INTERVAL" value="{{.LoadBalancerConfig.CheckInterval}}" placeholder="健康检查间�?�?，如�?0" min="10" max="300">
+                                <input type="number" id="LB_CHECK_INTERVAL" value="{{.LoadBalancerConfig.CheckInterval}}" placeholder="健康检查间隔，如：30" min="10" max="300">
                             </div>
                             <div class="btn-group">
                                 <button class="btn btn-primary" data-action="save" data-param="LB_CHECK_INTERVAL">
@@ -1141,10 +1169,10 @@
                         <div class="config-card">
                             <h3 class="param-title">LB_TIMEOUT</h3>
                             <div class="param-description">
-                                健康检查超时时�?�?
+                                健康检查超时时间（秒）
                             </div>
                             <div class="input-group">
-                                <input type="number" id="LB_TIMEOUT" value="{{.LoadBalancerConfig.Timeout}}" placeholder="健康检查超时时�?�?，如�?" min="1" max="30">
+                                <input type="number" id="LB_TIMEOUT" value="{{.LoadBalancerConfig.Timeout}}" placeholder="健康检查超时时间，如：5" min="1" max="30">
                             </div>
                             <div class="btn-group">
                                 <button class="btn btn-primary" data-action="save" data-param="LB_TIMEOUT">
@@ -1163,7 +1191,8 @@
   
     <div class="global-actions">
         <button class="reset-all-btn" data-action="reset-all">
-            🔄 全部重置为默认�?        </button>
+            🔄 全部重置为默认值
+        </button>
     </div>
   
     <div id="notification" class="notification">
@@ -1284,11 +1313,11 @@
                         const resultText = response.results?.[paramKey] || '';
                         const isError = resultText.includes('错误') || resultText.includes('失败') || resultText.includes('无效');
                         this.showNotification(
-                            `${isError ? '�? : '�?} ${paramKey} ${isError ? '修改失败' : '修改成功'}${resultText ? `:\n${resultText}` : '!'}`,
+                            `${isError ? '❌' : '✅'} ${paramKey} ${isError ? '修改失败' : '修改成功'}${resultText ? `:\n${resultText}` : '！'}`,
                             !isError
                         );
                     } else {
-                        this.showNotification(`�?${paramKey} 修改失败�?{response.message || '未知错误'}`, false);
+                        this.showNotification(`❌ ${paramKey} 修改失败：${response.message || '未知错误'}`, false);
                     }
                 } catch (error) {
                     this.handleApiError(error, paramKey);
@@ -1309,14 +1338,14 @@
                 const input = document.getElementById(key);
                 if (input) {
                     input.value = '';
-                    this.showNotification(`🗑�?${key} 已清空`, true);
+                    this.showNotification(`🗑️ ${key} 已清空`, true);
                 }
             }
             
             async updateGeoIP(button) {
-                if (!confirm('确定要更�?GeoIP 数据库吗？下载可能需要一些时间�?)) return;
+                if (!confirm('确定要更新 GeoIP 数据库吗？下载可能需要一些时间。')) return;
                 
-                this.setLoading(button, true, '下载�?..');
+                this.setLoading(button, true, '下载中...');
                 
                 try {
                     const response = await this.apiRequest('/api/geoip/update', {
@@ -1324,18 +1353,18 @@
                     });
                     
                     this.showNotification(
-                        response.success ? `�?${response.message}` : `�?${response.message || '更新失败'}`,
+                        response.success ? `✅ ${response.message}` : `❌ ${response.message || '更新失败'}`,
                         response.success
                     );
                 } catch (error) {
-                    this.showNotification('�?网络请求失败', false);
+                    this.showNotification('❌ 网络请求失败', false);
                 } finally {
                     this.setLoading(button, false);
                 }
             }
             
             async resetAllConfig() {
-                if (!confirm('确定要重置所有配置为默认值吗？此操作不可撤销�?)) return;
+                if (!confirm('确定要重置所有配置为默认值吗？此操作不可撤销。')) return;
                 
                 const resetBtn = document.querySelector('[data-action="reset-all"]');
                 this.setLoading(resetBtn, true);
@@ -1346,15 +1375,18 @@
                     });
                     
                     if (response.success) {
-                        this.showNotification('�?全部重置成功！页面将重新加载...', true);
+                        this.showNotification('✅ 全部重置成功，页面将重新加载...', true);
                         setTimeout(() => location.reload(), 1500);
                     } else {
-                        this.showNotification(`�?重置失败�?{response.message || '未知错误'}`, false);
+                        this.showNotification(`❌ 重置失败：${response.message || '未知错误'}`, false);
                         this.setLoading(resetBtn, false);
                     }
                 } catch (error) {
                     this.handleApiError(error, '重置');
                     this.setLoading(resetBtn, false);
+                }
+            }
+
             async apiRequest(endpoint, options = {}) {
                 let url = this.getBasePath() + endpoint;
                 

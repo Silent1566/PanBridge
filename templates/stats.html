@@ -121,6 +121,12 @@
             background: rgba(255, 255, 255, 0.28);
             transform: translateY(-1px);
         }
+
+        .header-link.active {
+            background: white;
+            color: var(--primary-blue);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+        }
       
         .header-title {
             font-size: 2.2rem;
@@ -398,6 +404,45 @@
             flex-wrap: wrap;
             gap: 10px;
         }
+
+        .table-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .request-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .request-filter-input,
+        .request-filter-select {
+            min-height: 40px;
+            padding: 10px 14px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-sm);
+            background: white;
+            color: var(--text-primary);
+        }
+
+        .request-filter-input {
+            min-width: 260px;
+        }
+
+        .request-filter-select {
+            min-width: 120px;
+        }
+
+        .request-filter-reset {
+            min-height: 40px;
+            padding: 10px 14px;
+        }
       
         table {
             width: 100%;
@@ -657,6 +702,17 @@
                 flex-direction: column;
                 align-items: flex-start;
             }
+
+            .table-toolbar,
+            .request-filters {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .request-filter-input {
+                min-width: 220px;
+                flex: 1 1 220px;
+            }
             
             .notification {
                 max-width: 90vw;
@@ -678,6 +734,15 @@
                 flex-direction: column;
                 gap: 15px;
                 text-align: center;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .header-links {
+                justify-content: center;
             }
           
             .header-title {
@@ -765,6 +830,12 @@
                 font-size: 13px;
                 top: 15px;
             }
+
+            .request-filter-input,
+            .request-filter-select,
+            .request-filter-reset {
+                width: 100%;
+            }
         }
       
         @media (max-width: 480px) {
@@ -849,22 +920,23 @@
         <div class="header">
             <div class="header-content">
                 <div class="header-main">
-                    <h1 class="header-title">Service Statistics</h1>
-                    <div class="header-subtitle">Overview of service health, traffic trends and blacklist operations.</div>
+                    <h1 class="header-title">后台运行统计</h1>
+                    <div class="header-subtitle">查看服务健康状态、请求趋势、黑名单命中与异常访问日志。</div>
                 </div>
                 <div class="header-right">
                     <div class="header-links">
-                        <a href="/config" class="header-link">Config</a>
-                        <a href="/admin/logout" class="header-link">Logout</a>
+                        <a href="/config" class="header-link">⚙️ 配置后台</a>
+                        <a href="/stats" class="header-link active">📊 运行统计</a>
+                        <a href="/admin/logout" class="header-link">🚪 退出登录</a>
                     </div>
                     <div class="time-filter" id="timeFilter">
-                        <button data-range="all">All</button>
-                        <button data-range="1h" class="active">1h</button>
-                        <button data-range="6h">6h</button>
-                        <button data-range="12h">12h</button>
-                        <button data-range="24h">24h</button>
-                        <button data-range="7d">7d</button>
-                        <button data-range="30d">30d</button>
+                        <button data-range="all">全部</button>
+                        <button data-range="1h" class="active">1小时</button>
+                        <button data-range="6h">6小时</button>
+                        <button data-range="12h">12小时</button>
+                        <button data-range="24h">24小时</button>
+                        <button data-range="7d">7天</button>
+                        <button data-range="30d">30天</button>
                     </div>
                 </div>
             </div>
@@ -982,8 +1054,38 @@
       
         <div class="table-container">
             <div class="table-header">
-                <h3 class="section-title">📋 最近请求日志</h3>
-                <div class="subtext">共 <span id="requestCount">0</span> 条记录，最多显示 1000 条</div>
+                <div>
+                    <h3 class="section-title">📋 最近请求日志</h3>
+                    <div class="subtext">
+                        当前时间范围共 <span id="requestCount">0</span> 条，请求筛选后 <span id="visibleRequestCount">0</span> 条，最多渲染 <span id="requestRenderLimitText">120</span> 条
+                    </div>
+                </div>
+                <div class="table-toolbar">
+                    <div class="request-filters">
+                        <input id="requestSearchFilter" class="request-filter-input" type="text" placeholder="筛选路径 / 搜索词 / IP / User-Agent">
+                        <select id="requestMethodFilter" class="request-filter-select">
+                            <option value="all">全部方法</option>
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                        <select id="requestStatusFilter" class="request-filter-select">
+                            <option value="all">全部状态</option>
+                            <option value="success">2xx 成功</option>
+                            <option value="redirect">3xx 跳转</option>
+                            <option value="client_error">4xx 客户端错误</option>
+                            <option value="server_error">5xx 服务端错误</option>
+                        </select>
+                        <select id="requestLimitFilter" class="request-filter-select">
+                            <option value="30">显示 30 条</option>
+                            <option value="60">显示 60 条</option>
+                            <option value="120" selected>显示 120 条</option>
+                            <option value="300">显示 300 条</option>
+                        </select>
+                        <button id="requestFilterReset" class="btn btn-secondary request-filter-reset" type="button">重置筛选</button>
+                    </div>
+                </div>
             </div>
             <div class="table-scroll-container">
                 <table id="recentRequestsTable" class="recent-requests-table">
@@ -1018,6 +1120,8 @@
                 this.currentRange = '1h';
                 this.notificationTimeout = null;
                 this.charts = [];
+                this.allRecentRequests = [];
+                this.requestDisplayLimit = 120;
                 this.init();
             }
             
@@ -1075,6 +1179,21 @@
                 });
                 
                 document.getElementById('blockBtn').addEventListener('click', () => this.blockItem());
+                document.getElementById('requestSearchFilter').addEventListener('input', () => this.renderRecentRequests());
+                document.getElementById('requestMethodFilter').addEventListener('change', () => this.renderRecentRequests());
+                document.getElementById('requestStatusFilter').addEventListener('change', () => this.renderRecentRequests());
+                document.getElementById('requestLimitFilter').addEventListener('change', (e) => {
+                    this.requestDisplayLimit = Number(e.target.value) || 120;
+                    this.renderRecentRequests();
+                });
+                document.getElementById('requestFilterReset').addEventListener('click', () => {
+                    document.getElementById('requestSearchFilter').value = '';
+                    document.getElementById('requestMethodFilter').value = 'all';
+                    document.getElementById('requestStatusFilter').value = 'all';
+                    document.getElementById('requestLimitFilter').value = '120';
+                    this.requestDisplayLimit = 120;
+                    this.renderRecentRequests();
+                });
                 
                 document.addEventListener('click', (e) => {
                     const button = e.target.closest('button');
@@ -1146,7 +1265,8 @@
             updateUI(stats, blacklist) {
                 this.updateMetrics(stats);
                 this.updateCharts(stats);
-                this.renderRecentRequests(stats.recentRequests || []);
+                this.allRecentRequests = Array.isArray(stats.recentRequests) ? stats.recentRequests : [];
+                this.renderRecentRequests();
                 this.renderBlacklist(blacklist || []);
             }
             
@@ -1240,13 +1360,22 @@
                 chartInstance.setOption(option);
             }
             
-            renderRecentRequests(requests) {
+            renderRecentRequests() {
                 const tbody = document.querySelector('#recentRequestsTable tbody');
                 const countElement = document.getElementById('requestCount');
+                const visibleCountElement = document.getElementById('visibleRequestCount');
+                const limitElement = document.getElementById('requestRenderLimitText');
+                const keyword = document.getElementById('requestSearchFilter').value.trim().toLowerCase();
+                const methodFilter = document.getElementById('requestMethodFilter').value;
+                const statusFilter = document.getElementById('requestStatusFilter').value;
+                const requests = this.allRecentRequests || [];
                 
                 tbody.innerHTML = '';
+                countElement.textContent = requests.length.toString();
+                limitElement.textContent = this.requestDisplayLimit.toString();
                 
                 if (requests.length === 0) {
+                    visibleCountElement.textContent = '0';
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-secondary);">
@@ -1256,41 +1385,89 @@
                     return;
                 }
                 
-                const visibleRequests = requests.slice(0, 120);
-                countElement.textContent = requests.length.toString();
+                const filteredRequests = requests.filter(req => {
+                    const method = (req.method || '').toUpperCase();
+                    const statusCode = Number(req.statusCode || 0);
+                    const haystack = [
+                        req.path || '',
+                        req.searchTerm || '',
+                        req.ip || '',
+                        req.userAgent || '',
+                        req.region || '',
+                        req.city || ''
+                    ].join(' ').toLowerCase();
+
+                    if (keyword && !haystack.includes(keyword)) {
+                        return false;
+                    }
+                    if (methodFilter !== 'all' && method !== methodFilter) {
+                        return false;
+                    }
+                    switch (statusFilter) {
+                        case 'success':
+                            return statusCode >= 200 && statusCode < 300;
+                        case 'redirect':
+                            return statusCode >= 300 && statusCode < 400;
+                        case 'client_error':
+                            return statusCode >= 400 && statusCode < 500;
+                        case 'server_error':
+                            return statusCode >= 500;
+                        default:
+                            return true;
+                    }
+                });
+                const visibleRequests = filteredRequests.slice(0, this.requestDisplayLimit);
+                visibleCountElement.textContent = filteredRequests.length.toString();
+
+                if (filteredRequests.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                当前筛选条件下暂无请求记录
+                            </td>
+                        </tr>`;
+                    return;
+                }
 
                 visibleRequests.forEach(req => {
                     const tr = document.createElement('tr');
                     const statusClass = this.getStatusClass(req.statusCode);
-                    const latencyMs = (req.latency / 1000000).toFixed(2);
-                    const userAgent = req.userAgent || '';
+                    const latencyMs = (Number(req.latency || 0) / 1000000).toFixed(2);
+                    const userAgent = this.asText(req.userAgent);
                     const displayUserAgent = userAgent.length > 30 ? 
                         userAgent.substring(0, 30) + '...' : userAgent;
-                    const searchTerm = req.searchTerm || '-';
-                    const time = new Date(req.timestamp).toLocaleTimeString([], 
+                    const searchTerm = this.asText(req.searchTerm, '-');
+                    const requestPath = this.asText(req.path, '-');
+                    const requestIP = this.asText(req.ip, '-');
+                    const requestRegion = this.asText(req.region, '未知');
+                    const requestMethod = this.asText(req.method, '-').toUpperCase();
+                    const requestStatus = this.asText(req.statusCode, '-');
+                    const timestamp = new Date(req.timestamp);
+                    const time = timestamp.toLocaleTimeString([], 
                         { hour: '2-digit', minute: '2-digit' });
-                    const date = new Date(req.timestamp).toLocaleDateString();
-                    const city = req.city || '未知';
+                    const date = timestamp.toLocaleDateString();
+                    const fullTime = timestamp.toLocaleString();
+                    const city = this.asText(req.city, '未知');
                     
                     tr.innerHTML = `
-                        <td title="${new Date(req.timestamp).toLocaleString()}">
-                            ${date}<br>${time}
+                        <td title="${this.escapeHtml(fullTime)}">
+                            ${this.escapeHtml(date)}<br>${this.escapeHtml(time)}
                         </td>
-                        <td>${req.method}</td>
-                        <td class="path-cell" data-full-path="${req.path}" title="${req.path}">
-                            ${req.path}
+                        <td>${this.escapeHtml(requestMethod)}</td>
+                        <td class="path-cell" data-full-path="${this.escapeHtml(requestPath)}" title="${this.escapeHtml(requestPath)}">
+                            ${this.escapeHtml(requestPath)}
                         </td>
-                        <td class="${statusClass}">${req.statusCode}</td>
-                        <td>${latencyMs}</td>
-                        <td>${req.ip}</td>
-                        <td>${req.region || '未知'}/${city}</td>
-                        <td title="${searchTerm}">
-                            ${searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}
+                        <td class="${statusClass}">${this.escapeHtml(requestStatus)}</td>
+                        <td>${this.escapeHtml(latencyMs)}</td>
+                        <td>${this.escapeHtml(requestIP)}</td>
+                        <td>${this.escapeHtml(requestRegion)}/${this.escapeHtml(city)}</td>
+                        <td title="${this.escapeHtml(searchTerm)}">
+                            ${this.escapeHtml(searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm)}
                         </td>
-                        <td title="${userAgent}">${displayUserAgent}</td>
+                        <td title="${this.escapeHtml(userAgent)}">${this.escapeHtml(displayUserAgent)}</td>
                         <td>
                             <div class="button-group">
-                                <button class="btn btn-danger" data-action="block-ip" data-ip="${req.ip}"
+                                <button class="btn btn-danger" data-action="block-ip" data-ip="${this.escapeHtml(requestIP)}"
                                     style="padding: 6px 8px; font-size: 11px;" title="封禁此IP地址">
                                     🚫 IP
                                 </button>
@@ -1310,6 +1487,22 @@
                         </td>`;
                     tbody.appendChild(tr);
                 });
+            }
+
+            asText(value, fallback = '') {
+                if (value === null || value === undefined || value === '') {
+                    return fallback;
+                }
+                return String(value);
+            }
+
+            escapeHtml(value) {
+                return this.asText(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
             }
             
             renderBlacklist(blacklist) {
