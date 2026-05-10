@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>服务运行统计</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --primary-blue: #2196F3;
+            --primary-blue-light: #E3F2FD;
+            --primary-blue-hover: #1976D2;
+            --accent-blue: #42A5F5;
+            --background-light: #f8fafc;
+            --card-bg: #ffffff;
+            --text-primary: #2c3e50;
+            --text-secondary: #546e7a;
+            --border-light: #e0e0e0;
+            --success-color: #4CAF50;
+            --warning-color: #FF9800;
+            --danger-color: #f44336;
+            --info-color: #2196F3;
+            --shadow-light: 0 2px 12px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.12);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+        }
+      
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+      
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+      
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            width: 100%;
+        }
+      
+        .header {
+            background: linear-gradient(135deg, var(--primary-blue), #21CBF3);
+            color: white;
+            padding: 30px 40px;
+            border-radius: var(--radius-lg);
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-light);
+            position: relative;
+            overflow: hidden;
+        }
+      
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(30deg);
+        }
+      
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+      
+        .header-title {
+            font-size: 2.2rem;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+      
+        .time-filter {
+            display: flex;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 8px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            flex-wrap: wrap;
+        }
+      
+        .time-filter button {
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+      
+        .time-filter button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+      
+        .time-filter button.active {
+            background: white;
+            color: var(--primary-blue);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+      
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+      
+        .metric-card {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-light);
+            text-align: center;
+            transition: all 0.3s ease;
+            border-left: 4px solid var(--primary-blue);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 140px;
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+      
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-blue), transparent);
+        }
+      
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+      
+        .metric-card .label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+      
+        .metric-card .value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 5px;
+            font-feature-settings: "tnum";
+        }
+      
+        .metric-card .subtext {
+            font-size: 12px;
+            color: var(--text-secondary);
+            opacity: 0.8;
+        }
+      
+        .metric-card.error .value {
+            color: var(--danger-color);
+        }
+      
+        .metric-card.success .value {
+            color: var(--success-color);
+        }
+      
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+      
+        .chart-card {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-light);
+            transition: all 0.3s ease;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+      
+        .chart-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+      
+        .chart-card h3 {
+            color: var(--text-primary);
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+      
+        .chart {
+            width: 100%;
+            height: 300px;
+            min-height: 300px;
+            flex: 1;
+        }
+      
+        .management-section {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-light);
+            margin-bottom: 30px;
+        }
+      
+        .section-title {
+            font-size: 1.4rem;
+            color: var(--primary-blue);
+            margin-bottom: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+      
+        .blacklist-form {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: end;
+        }
+      
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+      
+        .form-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+      
+        input, select {
+            padding: 12px 16px;
+            border: 2px solid var(--border-light);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: white;
+            width: 100%;
+        }
+      
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+      
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            text-decoration: none;
+            min-height: 44px;
+        }
+      
+        .btn-full-width {
+            width: 100%;
+            padding: 14px 24px;
+            font-size: 16px;
+        }
+      
+        .btn-primary {
+            background: var(--primary-blue);
+            color: white;
+        }
+      
+        .btn-primary:hover {
+            background: var(--primary-blue-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+      
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+      
+        .btn-danger:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+        }
+      
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+      
+        .btn-success:hover {
+            background: #388E3C;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+      
+        .table-container {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-light);
+            margin-bottom: 30px;
+            overflow: hidden;
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+      
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+      
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            table-layout: fixed;
+        }
+      
+        th {
+            background: var(--primary-blue-light);
+            color: var(--primary-blue);
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-light);
+            position: sticky;
+            top: 0;
+        }
+      
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: middle;
+        }
+      
+        tr:hover {
+            background: rgba(33, 150, 243, 0.05);
+        }
+      
+        .status-2xx { color: var(--success-color); font-weight: 600; }
+        .status-3xx { color: var(--info-color); font-weight: 600; }
+        .status-4xx { color: var(--warning-color); font-weight: 600; }
+        .status-5xx { color: var(--danger-color); font-weight: 600; }
+      
+        .path-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: help;
+            position: relative;
+        }
+      
+        .path-cell:hover::after {
+            content: attr(data-full-path);
+            position: absolute;
+            left: 0;
+            top: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            z-index: 1000;
+            white-space: normal;
+            word-break: break-all;
+            max-width: 400px;
+            box-shadow: var(--shadow-hover);
+            font-size: 13px;
+        }
+      
+        .message {
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            margin: 10px 0;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+      
+        .message.success {
+            background: #E8F5E8;
+            color: var(--success-color);
+            border-left: 4px solid var(--success-color);
+        }
+      
+        .message.error {
+            background: #FFEBEE;
+            color: var(--danger-color);
+            border-left: 4px solid var(--danger-color);
+        }
+      
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+            position: relative;
+        }
+      
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+      
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+      
+        .button-group {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+      
+        .btn-warning {
+            background: var(--warning-color);
+            color: white;
+        }
+      
+        .btn-warning:hover {
+            background: #F57C00;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+        }
+      
+        .btn-secondary {
+            background: #9E9E9E;
+            color: white;
+        }
+      
+        .btn-secondary:hover {
+            background: #757575;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(158, 158, 158, 0.3);
+        }
+        
+        .btn-info {
+            background: var(--info-color);
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: var(--primary-blue-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100%);
+            padding: 12px 20px;
+            border-radius: var(--radius-sm);
+            background: white;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            z-index: 9999;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 500px;
+            width: auto;
+            min-width: 300px;
+            max-height: 70vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.5;
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            border-left: 4px solid transparent;
+        }
+        
+        .notification.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        .notification.success {
+            border-left-color: var(--success-color);
+            background: linear-gradient(135deg, #DEF0FF 0%, #ffffff 100%);
+            border: 1px solid rgba(66, 165, 245, 0.2);
+        }
+        
+        .notification.error {
+            border-left-color: var(--danger-color);
+            background: linear-gradient(135deg, #FFEBEE 0%, #ffffff 100%);
+            border: 1px solid rgba(244, 67, 54, 0.2);
+        }
+        
+        .table-scroll-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-sm);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .metric-card:nth-child(1) { animation-delay: 0.1s; }
+        .metric-card:nth-child(2) { animation-delay: 0.2s; }
+        .metric-card:nth-child(3) { animation-delay: 0.3s; }
+        .metric-card:nth-child(4) { animation-delay: 0.4s; }
+        .metric-card:nth-child(5) { animation-delay: 0.5s; }
+        .metric-card:nth-child(6) { animation-delay: 0.6s; }
+        .chart-card:nth-child(1) { animation-delay: 0.3s; }
+        .chart-card:nth-child(2) { animation-delay: 0.4s; }
+        .chart-card:nth-child(3) { animation-delay: 0.5s; }
+        .chart-card:nth-child(4) { animation-delay: 0.6s; }
+      
+        @media (max-width: 1024px) {
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .charts-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .blacklist-form {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .table-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .notification {
+                max-width: 90vw;
+                min-width: 280px;
+            }
+        }
+      
+        @media (max-width: 768px) {
+            .app-container {
+                padding: 12px;
+            }
+          
+            .header {
+                padding: 20px 25px;
+                border-radius: var(--radius-md);
+            }
+          
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+          
+            .header-title {
+                font-size: 1.8rem;
+            }
+          
+            .time-filter {
+                flex-wrap: wrap;
+                justify-content: center;
+                width: 100%;
+                max-width: 100%;
+                overflow-x: auto;
+                padding-bottom: 5px;
+            }
+          
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+          
+            .metric-card {
+                padding: 20px;
+                min-height: 120px;
+            }
+          
+            .metric-card .value {
+                font-size: 1.8rem;
+            }
+          
+            .charts-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+          
+            .chart-card, .management-section, .table-container {
+                padding: 20px;
+            }
+          
+            .chart {
+                height: 250px;
+                min-height: 250px;
+            }
+          
+            .blacklist-form {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .button-group .btn {
+                margin-bottom: 5px;
+                padding: 6px 8px;
+                font-size: 11px;
+                min-height: auto;
+                flex: 1;
+                min-width: 60px;
+            }
+            
+            table {
+                font-size: 13px;
+            }
+            
+            th, td {
+                padding: 8px 12px;
+            }
+            
+            .recent-requests-table th:nth-child(1),
+            .recent-requests-table td:nth-child(1) {
+                width: 120px;
+            }
+            
+            .recent-requests-table th:nth-child(10),
+            .recent-requests-table td:nth-child(10) {
+                width: 180px;
+            }
+            
+            .notification {
+                max-width: 90vw;
+                min-width: 280px;
+                padding: 10px 16px;
+                font-size: 13px;
+                top: 15px;
+            }
+        }
+      
+        @media (max-width: 480px) {
+            .header-title {
+                font-size: 1.6rem;
+            }
+          
+            .time-filter button {
+                padding: 8px 16px;
+                font-size: 13px;
+                flex: 1;
+                min-width: 80px;
+            }
+          
+            .path-cell {
+                max-width: 120px;
+            }
+          
+            .path-cell:hover::after {
+                max-width: 300px;
+            }
+            
+            .chart-card h3 {
+                font-size: 1.1rem;
+            }
+            
+            .section-title {
+                font-size: 1.2rem;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .button-group .btn {
+                width: 100%;
+                margin-bottom: 3px;
+            }
+            
+            .recent-requests-table th:nth-child(6),
+            .recent-requests-table td:nth-child(6),
+            .recent-requests-table th:nth-child(8),
+            .recent-requests-table td:nth-child(8),
+            .recent-requests-table th:nth-child(9),
+            .recent-requests-table td:nth-child(9) {
+                display: none;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .notification {
+                min-width: 280px;
+                max-width: 90vw;
+                padding: 8px 14px;
+                font-size: 12px;
+                top: 10px;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            .recent-requests-table th:nth-child(7),
+            .recent-requests-table td:nth-child(7) {
+                display: none;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .notification {
+                min-width: 250px;
+                max-width: 90vw;
+                padding: 6px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <div class="header-content">
+                <h1 class="header-title">📊 服务运行统计</h1>
+                <div class="time-filter" id="timeFilter">
+                    <button data-range="all">全部</button>
+                    <button data-range="1h" class="active">最近1小时</button>
+                    <button data-range="6h">最近6小时</button>
+                    <button data-range="12h">最近12小时</button>
+                    <button data-range="24h">最近24小时</button>
+                    <button data-range="7d">最近7天</button>
+                    <button data-range="30d">最近30天</button>
+                </div>
+            </div>
+        </div>
+      
+        <div class="metrics-grid" id="metricsGrid">
+            <div class="metric-card">
+                <div class="label">总请求数</div>
+                <div class="value" id="totalRequests">--</div>
+                <div class="subtext">累计请求数量</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">QPS (每秒查询数)</div>
+                <div class="value" id="qps">--</div>
+                <div class="subtext">当前请求频率</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">平均响应时间</div>
+                <div class="value" id="avgResponseTime">-- ms</div>
+                <div class="subtext">平均处理时间</div>
+            </div>
+            <div class="metric-card success">
+                <div class="label">成功率 (2xx)</div>
+                <div class="value" id="successRate">-- %</div>
+                <div class="subtext">成功请求比例</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">状态码种类</div>
+                <div class="value" id="statusCodeCount">--</div>
+                <div class="subtext">不同状态码数量</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">服务运行时间</div>
+                <div class="value" id="uptime">--</div>
+                <div class="subtext">持续运行时长</div>
+            </div>
+        </div>
+      
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>🔥 热门搜索词 Top 10</h3>
+                <div id="searchTermTopNChart" class="chart"></div>
+            </div>
+            <div class="chart-card">
+                <h3>🌍 访问地区 Top 10</h3>
+                <div id="regionTopNChart" class="chart"></div>
+            </div>
+            <div class="chart-card">
+                <h3>🏙️ 访问城市 Top 10</h3>
+                <div id="cityTopNChart" class="chart"></div>
+            </div>
+            <div class="chart-card">
+                <h3>📱 User-Agent Top 10</h3>
+                <div id="uaTopNChart" class="chart"></div>
+            </div>
+        </div>
+      
+        <div class="management-section">
+            <h3 class="section-title">🛡️ 黑名单管理</h3>
+            <div class="blacklist-form">
+                <div class="form-group">
+                    <label class="form-label">封禁类型</label>
+                    <select id="blockType">
+                        <option value="ip">IP 地址</option>
+                        <option value="user_agent">User-Agent</option>
+                        <option value="region">地区</option>
+                        <option value="city">城市</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" id="blockValueLabel">IP 地址</label>
+                    <input type="text" id="blockValue" placeholder="输入要封禁的值" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">封禁时长</label>
+                    <select id="blockDuration">
+                        <option value="1h">1 小时</option>
+                        <option value="6h">6 小时</option>
+                        <option value="24h">24 小时</option>
+                        <option value="7d">7 天</option>
+                        <option value="permanent">永久</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">原因（可选）</label>
+                    <input type="text" id="blockReason" placeholder="输入封禁原因">
+                </div>
+            </div>
+            <button class="btn btn-danger btn-full-width" id="blockBtn">
+                🚫 执行封禁
+            </button>
+            <div id="blacklistMessage" class="message"></div>
+          
+            <div class="table-container">
+                <div class="table-header">
+                    <h4>当前黑名单列表</h4>
+                    <div class="subtext">共 <span id="blacklistCount">0</span> 条记录</div>
+                </div>
+                <div class="table-scroll-container">
+                    <table id="blacklistTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 100px;">类型</th>
+                                <th style="width: 200px;">值</th>
+                                <th style="width: 150px;">到期时间</th>
+                                <th style="width: 150px;">原因</th>
+                                <th style="width: 80px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+      
+        <div class="table-container">
+            <div class="table-header">
+                <h3 class="section-title">📋 最近请求日志</h3>
+                <div class="subtext">共 <span id="requestCount">0</span> 条记录，最多显示 1000 条</div>
+            </div>
+            <div class="table-scroll-container">
+                <table id="recentRequestsTable" class="recent-requests-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 140px;">时间</th>
+                            <th style="width: 60px;">方法</th>
+                            <th style="width: 200px;">路径</th>
+                            <th style="width: 70px;">状态码</th>
+                            <th style="width: 80px;">耗时(ms)</th>
+                            <th style="width: 120px;">IP</th>
+                            <th style="width: 120px;">地区/城市</th>
+                            <th style="width: 100px;">搜索词</th>
+                            <th style="width: 150px;">User-Agent</th>
+                            <th style="width: 200px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div id="globalNotification" class="notification">
+        <div class="notification-content"></div>
+    </div>
+  
+    <script>
+        class StatsManager {
+            constructor() {
+                this.API_URL = '/api/stats/get';
+                this.currentRange = '1h';
+                this.notificationTimeout = null;
+                this.charts = [];
+                this.init();
+            }
+            
+            init() {
+                this.initCharts();
+                this.bindEvents();
+                this.setupKeyboardShortcuts();
+                this.loadInitialData();
+            }
+            
+            initCharts() {
+                const chartIds = [
+                    'searchTermTopNChart',
+                    'regionTopNChart', 
+                    'cityTopNChart',
+                    'uaTopNChart'
+                ];
+                
+                chartIds.forEach(id => {
+                    const chart = echarts.init(document.getElementById(id));
+                    this.charts.push(chart);
+                });
+                
+                window.addEventListener('resize', () => {
+                    this.charts.forEach(chart => {
+                        try { chart.resize(); } catch(e) { console.warn('Chart resize error:', e); }
+                    });
+                });
+            }
+            
+            bindEvents() {
+                document.getElementById('timeFilter').addEventListener('click', (e) => {
+                    const button = e.target.closest('button');
+                    if (!button) return;
+                    
+                    document.querySelectorAll('#timeFilter button').forEach(btn => 
+                        btn.classList.remove('active')
+                    );
+                    button.classList.add('active');
+                    this.currentRange = button.dataset.range;
+                    this.fetchStats();
+                });
+                
+                document.getElementById('blockType').addEventListener('change', (e) => {
+                    const labels = {
+                        'ip': 'IP 地址',
+                        'user_agent': 'User-Agent', 
+                        'region': '地区',
+                        'city': '城市'
+                    };
+                    const label = document.getElementById('blockValueLabel');
+                    const input = document.getElementById('blockValue');
+                    label.textContent = labels[e.target.value];
+                    input.placeholder = `输入要封禁的${labels[e.target.value]}`;
+                });
+                
+                document.getElementById('blockBtn').addEventListener('click', () => this.blockItem());
+                
+                document.addEventListener('click', (e) => {
+                    const button = e.target.closest('button');
+                    if (!button) return;
+                    
+                    const action = button.getAttribute('data-action');
+                    if (!action) return;
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    switch(action) {
+                        case 'block-ip':
+                            const ip = button.getAttribute('data-ip');
+                            this.blockIP(ip);
+                            break;
+                        case 'block-ua':
+                            const ua = button.getAttribute('data-ua');
+                            this.blockUserAgent(ua);
+                            break;
+                        case 'block-region':
+                            const region = button.getAttribute('data-region');
+                            this.blockRegion(region);
+                            break;
+                        case 'block-city':
+                            const city = button.getAttribute('data-city');
+                            this.blockCity(city);
+                            break;
+                        case 'unblock':
+                            const value = button.getAttribute('data-value');
+                            this.unblockItem(value);
+                            break;
+                    }
+                });
+                
+                document.getElementById('globalNotification').addEventListener('click', () => 
+                    this.hideNotification()
+                );
+            }
+            
+            setupKeyboardShortcuts() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') this.hideNotification();
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                        e.preventDefault();
+                        this.fetchStats();
+                        this.showNotification('🔄 数据已刷新', true);
+                    }
+                });
+            }
+            
+            loadInitialData() {
+                setTimeout(() => this.fetchStats(), 100);
+                setInterval(() => this.fetchStats(), 30000);
+            }
+            
+            async fetchStats() {
+                try {
+                    const response = await this.apiRequest(`${this.API_URL}?range=${this.currentRange}`);
+                    this.updateUI(response.stats, response.blacklist);
+                } catch (error) {
+                    console.error("Error fetching statistics:", error);
+                    document.getElementById('totalRequests').innerHTML = 
+                        '<span style="color:var(--danger-color)">数据加载失败</span>';
+                    this.showNotification(`❌ 数据加载失败：${error.message}`, false);
+                }
+            }
+            
+            updateUI(stats, blacklist) {
+                this.updateMetrics(stats);
+                this.updateCharts(stats);
+                this.renderRecentRequests(stats.recentRequests || []);
+                this.renderBlacklist(blacklist || []);
+            }
+            
+            updateMetrics(stats) {
+                const metrics = {
+                    'totalRequests': stats.totalRequests?.toLocaleString() || '--',
+                    'qps': stats.qps?.toFixed(2) || '--',
+                    'avgResponseTime': stats.avgResponseTime?.toFixed(2) + ' ms' || '-- ms',
+                    'successRate': stats.successRate?.toFixed(2) + ' %' || '-- %',
+                    'statusCodeCount': stats.statusCodeCounts ? 
+                        Object.keys(stats.statusCodeCounts).length : '--',
+                    'uptime': stats.uptime || '--'
+                };
+                
+                Object.entries(metrics).forEach(([id, value]) => {
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = value;
+                });
+            }
+            
+            updateCharts(stats) {
+                const chartData = [
+                    { chart: this.charts[0], data: stats.searchTermTopN, title: '搜索词', color: '#2196F3' },
+                    { chart: this.charts[1], data: stats.regionTopN, title: '访问地区', color: '#42A5F5' },
+                    { chart: this.charts[2], data: stats.cityTopN, title: '访问城市', color: '#64B5F6' },
+                    { chart: this.charts[3], data: stats.userAgentTopN, title: 'User-Agent', color: '#90CAF9' }
+                ];
+                
+                chartData.forEach(({ chart, data, title, color }) => {
+                    this.renderBarChart(chart, data || [], title, 'count', color);
+                });
+            }
+            
+            renderBarChart(chartInstance, data, title, valueKey, color) {
+                if (!data || data.length === 0) {
+                    data = [{ name: '暂无数据', [valueKey]: 1 }];
+                    color = '#cccccc';
+                }
+                
+                const option = {
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'shadow' },
+                        formatter: params => 
+                            `${params[0].name}<br/>${title}: ${params[0].value}`,
+                        textStyle: { fontSize: 14, color: '#2c3e50' }
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '4%',
+                        bottom: '3%',
+                        top: '10%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'value',
+                        axisLine: { lineStyle: { color: '#e0e0e0' } },
+                        axisLabel: { fontSize: 12, color: '#546e7a' }
+                    },
+                    yAxis: {
+                        type: 'category',
+                        data: data.map(d => d.name).reverse(),
+                        axisLabel: {
+                            interval: 0,
+                            fontSize: 12,
+                            color: '#546e7a',
+                            formatter: value => value.length > 15 ? 
+                                value.substring(0, 15) + '...' : value
+                        },
+                        axisLine: { lineStyle: { color: '#e0e0e0' } }
+                    },
+                    series: [{
+                        name: title,
+                        type: 'bar',
+                        data: data.map(d => d[valueKey]).reverse(),
+                        itemStyle: {
+                            color,
+                            borderRadius: [0, 4, 4, 0]
+                        },
+                        label: {
+                            show: true,
+                            position: 'right',
+                            formatter: '{c}',
+                            fontSize: 12,
+                            fontWeight: 'bold',
+                            color: '#2c3e50'
+                        }
+                    }]
+                };
+                
+                chartInstance.setOption(option);
+            }
+            
+            renderRecentRequests(requests) {
+                const tbody = document.querySelector('#recentRequestsTable tbody');
+                const countElement = document.getElementById('requestCount');
+                
+                tbody.innerHTML = '';
+                countElement.textContent = requests.length.toString();
+                
+                if (requests.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                暂无请求记录
+                            </td>
+                        </tr>`;
+                    return;
+                }
+                
+                requests.forEach(req => {
+                    const tr = document.createElement('tr');
+                    const statusClass = this.getStatusClass(req.statusCode);
+                    const latencyMs = (req.latency / 1000000).toFixed(2);
+                    const userAgent = req.userAgent || '';
+                    const displayUserAgent = userAgent.length > 30 ? 
+                        userAgent.substring(0, 30) + '...' : userAgent;
+                    const searchTerm = req.searchTerm || '-';
+                    const time = new Date(req.timestamp).toLocaleTimeString([], 
+                        { hour: '2-digit', minute: '2-digit' });
+                    const date = new Date(req.timestamp).toLocaleDateString();
+                    const city = req.city || '未知';
+                    
+                    tr.innerHTML = `
+                        <td title="${new Date(req.timestamp).toLocaleString()}">
+                            ${date}<br>${time}
+                        </td>
+                        <td>${req.method}</td>
+                        <td class="path-cell" data-full-path="${req.path}" title="${req.path}">
+                            ${req.path}
+                        </td>
+                        <td class="${statusClass}">${req.statusCode}</td>
+                        <td>${latencyMs}</td>
+                        <td>${req.ip}</td>
+                        <td>${req.region || '未知'}/${city}</td>
+                        <td title="${searchTerm}">
+                            ${searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}
+                        </td>
+                        <td title="${userAgent}">${displayUserAgent}</td>
+                        <td>
+                            <div class="button-group">
+                                <button class="btn btn-danger" data-action="block-ip" data-ip="${req.ip}"
+                                    style="padding: 6px 8px; font-size: 11px;" title="封禁此IP地址">
+                                    🚫 IP
+                                </button>
+                                <button class="btn btn-warning" data-action="block-ua" data-ua="${encodeURIComponent(userAgent)}"
+                                    style="padding: 6px 8px; font-size: 11px;" title="封禁此User-Agent">
+                                    📱 UA
+                                </button>
+                                <button class="btn btn-info" data-action="block-region" data-region="${encodeURIComponent(req.region || '')}"
+                                    style="padding: 6px 8px; font-size: 11px;" title="封禁此地区">
+                                    🗺️ 地区
+                                </button>
+                                <button class="btn btn-secondary" data-action="block-city" data-city="${encodeURIComponent(city)}"
+                                    style="padding: 6px 8px; font-size: 11px;" title="封禁此城市">
+                                    🏙️ 城市
+                                </button>
+                            </div>
+                        </td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+            
+            renderBlacklist(blacklist) {
+                const tbody = document.querySelector('#blacklistTable tbody');
+                const countElement = document.getElementById('blacklistCount');
+                
+                tbody.innerHTML = '';
+                countElement.textContent = blacklist.length.toString();
+                
+                if (blacklist.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                暂无封禁记录
+                            </td>
+                        </tr>`;
+                    return;
+                }
+                
+                const typeConfig = {
+                    'ip': { icon: '🌐', text: 'IP地址' },
+                    'user_agent': { icon: '📱', text: 'User-Agent' },
+                    'region': { icon: '🗺️', text: '地区' },
+                    'city': { icon: '🏙️', text: '城市' }
+                };
+                
+                [...blacklist]
+                    .sort((a, b) => a.type.localeCompare(b.type) || 
+                        new Date(b.created_at) - new Date(a.created_at))
+                    .forEach(item => {
+                        const type = typeConfig[item.type] || { icon: '❓', text: item.type };
+                        const expiryText = this.formatExpiry(item.expiry);
+                        const displayValue = item.value.length > 30 ? 
+                            item.value.substring(0, 30) + '...' : item.value;
+                        const reason = item.reason || '无';
+                        const displayReason = reason.length > 30 ? 
+                            reason.substring(0, 30) + '...' : reason;
+                        
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>
+                                <span style="font-weight: bold;">
+                                    ${type.icon} ${type.text}
+                                </span>
+                            </td>
+                            <td title="${item.value}">${displayValue}</td>
+                            <td>${expiryText}</td>
+                            <td title="${reason}">${displayReason}</td>
+                            <td>
+                                <button class="btn btn-success" data-action="unblock" 
+                                    data-value="${encodeURIComponent(item.value)}"
+                                    style="padding: 6px 12px; font-size: 12px;">
+                                    ✅ 解除
+                                </button>
+                            </td>`;
+                        tbody.appendChild(tr);
+                    });
+            }
+            
+            formatExpiry(expiry) {
+                if (!expiry || expiry.includes('0001-01-01') || expiry.includes('permanent')) {
+                    return '<span style="color: #f44336; font-weight: bold;">永久</span>';
+                }
+                try {
+                    return new Date(expiry).toLocaleString();
+                } catch {
+                    return expiry;
+                }
+            }
+            
+            getStatusClass(code) {
+                if (code >= 200 && code < 300) return 'status-2xx';
+                if (code >= 300 && code < 400) return 'status-3xx';
+                if (code >= 400 && code < 500) return 'status-4xx';
+                if (code >= 500) return 'status-5xx';
+                return '';
+            }
+            
+            async blockItem() {
+                const type = document.getElementById('blockType').value;
+                const value = document.getElementById('blockValue').value.trim();
+                const duration = document.getElementById('blockDuration').value;
+                const reason = document.getElementById('blockReason').value.trim();
+            
+                if (!value) {
+                    this.showMessage(`请输入${document.getElementById('blockValueLabel').textContent}`, false);
+                    return;
+                }
+            
+                if (type === 'ip' && !this.isValidIP(value)) {
+                    this.showMessage("IP地址格式不正确，请输入有效的IPv4地址（如：192.168.1.1）", false);
+                    return;
+                }
+                
+                try {
+                    const response = await this.makeRequest('/api/blacklist/block', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            type,
+                            value,
+                            duration,
+                            reason: reason || '手动封禁'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        this.showNotification(`✅ 封禁成功 (${value})`, true);
+                        this.fetchStats();
+                    } else {
+                        this.showNotification(`❌ 封禁失败: ${response.statusText}`, false);
+                    }
+                } catch (error) {
+                    console.error("Block item error:", error);
+                    this.showNotification(`❌ 网络错误: ${error.message}`, false);
+                }
+                
+                document.getElementById('blockValue').value = '';
+                document.getElementById('blockReason').value = '';
+            }
+            
+            async blockIP(ip) {
+                if (!confirm(`确定要封禁IP ${ip} 吗？\n\n封禁后该IP将无法访问服务。`)) return;
+                
+                const duration = prompt('请选择封禁时长 (例如: 1h, 24h, 7d, permanent):', '24h');
+                if (duration === null) return;
+                
+                try {
+                    const response = await this.makeRequest('/api/blacklist/block', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            type: 'ip',
+                            value: ip,
+                            duration,
+                            reason: '从日志封禁'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        this.showNotification(`✅ IP ${ip} 封禁成功`, true);
+                        this.fetchStats();
+                    } else {
+                        this.showNotification(`❌ 封禁失败: ${response.statusText}`, false);
+                    }
+                } catch (error) {
+                    console.error("Block IP error:", error);
+                    this.showNotification(`❌ 网络错误: ${error.message}`, false);
+                }
+            }
+            
+            async blockUserAgent(userAgent) {
+                userAgent = decodeURIComponent(userAgent);
+                if (!userAgent || userAgent === '') {
+                    this.showMessage('User-Agent为空，无法封禁', false);
+                    return;
+                }
+                
+                if (!confirm(`确定要封禁此User-Agent吗？\n\n${userAgent.substring(0, 200) + (userAgent.length > 200 ? '...' : '')}`)) return;
+                
+                const duration = prompt('请选择封禁时长 (例如: 1h, 24h, 7d, permanent):', '7d');
+                if (duration === null) return;
+                
+                try {
+                    const response = await this.makeRequest('/api/blacklist/block', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            type: 'user_agent',
+                            value: userAgent,
+                            duration,
+                            reason: '从日志封禁'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        this.showNotification(`✅ User-Agent封禁成功`, true);
+                        this.fetchStats();
+                    } else {
+                        this.showNotification(`❌ 封禁失败: ${response.statusText}`, false);
+                    }
+                } catch (error) {
+                    console.error("Block UA error:", error);
+                    this.showNotification(`❌ 网络错误: ${error.message}`, false);
+                }
+            }
+            
+            async blockRegion(region) {
+                region = decodeURIComponent(region);
+                if (!region || region === '' || region === '未知') {
+                    this.showMessage('地区为空或未知，无法封禁', false);
+                    return;
+                }
+                
+                if (!confirm(`确定要封禁地区 ${region} 吗？\n\n封禁后该地区所有IP将无法访问服务。`)) return;
+                
+                const duration = prompt('请选择封禁时长 (例如: 1h, 24h, 7d, permanent):', '24h');
+                if (duration === null) return;
+                
+                try {
+                    const response = await this.makeRequest('/api/blacklist/block', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            type: 'region',
+                            value: region,
+                            duration,
+                            reason: '从日志封禁'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        this.showNotification(`✅ 地区 ${region} 封禁成功`, true);
+                        this.fetchStats();
+                    } else {
+                        this.showNotification(`❌ 封禁失败: ${response.statusText}`, false);
+                    }
+                } catch (error) {
+                    console.error("Block region error:", error);
+                    this.showNotification(`❌ 网络错误: ${error.message}`, false);
+                }
+            }
+            
+            async blockCity(city) {
+                city = decodeURIComponent(city);
+                if (!city || city === '' || city === '未知') {
+                    this.showMessage('城市为空或未知，无法封禁', false);
+                    return;
+                }
+                
+                if (!confirm(`确定要封禁城市 ${city} 吗？\n\n封禁后该城市所有IP将无法访问服务。`)) return;
+                
+                const duration = prompt('请选择封禁时长 (例如: 1h, 24h, 7d, permanent):', '24h');
+                if (duration === null) return;
+                
+                try {
+                    const response = await this.makeRequest('/api/blacklist/block', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            type: 'city',
+                            value: city,
+                            duration,
+                            reason: '从日志封禁'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        this.showNotification(`✅ 城市 ${city} 封禁成功`, true);
+                        this.fetchStats();
+                    } else {
+                        this.showNotification(`❌ 封禁失败: ${response.statusText}`, false);
+                    }
+                } catch (error) {
+                    console.error("Block city error:", error);
+                    this.showNotification(`❌ 网络错误: ${error.message}`, false);
+                }
+            }
+            
+            async unblockItem(value) {
+                value = decodeURIComponent(value);
+                if (!confirm(`确定要解除封禁 "${value}" 吗？`)) return;
+                
+                try {
+                    const response = await this.makeRequest('/api/blacklist/unblock', {
+                        method: 'POST',
+                        body: JSON.stringify({ value })
+                    });
+                    
+                    if (response.ok) {
+                        this.showNotification(`✅ "${value}" 解除封禁成功`, true);
+                        this.fetchStats();
+                    } else {
+                        this.showNotification(`❌ 解除封禁失败: ${response.statusText}`, false);
+                    }
+                } catch (error) {
+                    console.error("Unblock error:", error);
+                    this.showNotification(`❌ 网络错误: ${error.message}`, false);
+                }
+            }
+            
+            async apiRequest(url) {
+                const token = this.getToken();
+                const fullUrl = url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                
+                const response = await fetch(fullUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            }
+            
+            async makeRequest(endpoint, options = {}) {
+                const token = this.getToken();
+                const url = endpoint + (endpoint.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                
+                const defaultOptions = {
+                    headers: { 'Content-Type': 'application/json' },
+                    ...options
+                };
+                
+                return await fetch(url, defaultOptions);
+            }
+            
+            showMessage(message, isSuccess) {
+                const messageEl = document.getElementById('blacklistMessage');
+                messageEl.textContent = message;
+                messageEl.className = `message ${isSuccess ? 'success' : 'error'}`;
+                setTimeout(() => messageEl.className = 'message', 5000);
+            }
+            
+            showNotification(message, isSuccess) {
+                const notification = document.getElementById('globalNotification');
+                const content = notification.querySelector('.notification-content');
+                
+                if (this.notificationTimeout) {
+                    clearTimeout(this.notificationTimeout);
+                    this.notificationTimeout = null;
+                }
+                
+                const formattedMessage = message
+                    .replace(/\n/g, '<br>')
+                    .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
+                    .replace(/  /g, '&nbsp;&nbsp;');
+                
+                content.innerHTML = formattedMessage;
+                notification.className = `notification ${isSuccess ? 'success' : 'error'} show`;
+                content.scrollTop = 0;
+                
+                const duration = Math.min(5000, Math.max(2000, message.length * 30));
+                
+                this.notificationTimeout = setTimeout(() => {
+                    notification.classList.remove('show');
+                }, duration);
+            }
+            
+            hideNotification() {
+                const notification = document.getElementById('globalNotification');
+                notification.classList.remove('show');
+                if (this.notificationTimeout) {
+                    clearTimeout(this.notificationTimeout);
+                    this.notificationTimeout = null;
+                }
+            }
+            
+            isValidIP(ip) {
+                const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+                if (!ipRegex.test(ip)) return false;
+                
+                return ip.split('.').every(part => {
+                    const num = parseInt(part, 10);
+                    return !isNaN(num) && num >= 0 && num <= 255 && 
+                        !(part.length > 1 && part[0] === '0');
+                });
+            }
+            
+            getToken() {
+                return new URLSearchParams(window.location.search).get('token') || '';
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            new StatsManager();
+        });
+    </script>
+</body>
+</html>

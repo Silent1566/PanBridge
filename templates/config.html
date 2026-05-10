@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>P2T参数配置</title>
+    <style>
+        :root {
+            --primary-blue: #2196F3;
+            --primary-blue-hover: #1976D2;
+            --accent-red: #FF5252;
+            --accent-red-hover: #D32F2F;
+            --background-light: #f8fafc;
+            --card-bg: #ffffff;
+            --text-primary: #2c3e50;
+            --text-secondary: #546e7a;
+            --border-light: #e0e0e0;
+            --success-color: #42A5F5;
+            --warning-color: #FF9800;
+            --shadow-light: 0 2px 12px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.12);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+        }
+      
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-font-smoothing: antialiased;
+            -webkit-text-size-adjust: 100%;
+        }
+      
+        html {
+            font-size: 16px;
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+        }
+      
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            width: 100%;
+            overflow-x: hidden;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+      
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            width: 100%;
+        }
+      
+        .header {
+            background: linear-gradient(135deg, var(--primary-blue), #21CBF3);
+            color: white;
+            padding: 30px 40px;
+            border-radius: var(--radius-lg);
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-light);
+            position: relative;
+            overflow: hidden;
+        }
+      
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(30deg);
+        }
+      
+        .header-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+            flex-wrap: wrap;
+            gap: 15px;
+            width: 100%;
+            padding: 10px 20px;
+        }        
+
+        .header-title {
+            font-size: 2.2rem;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            margin: 0;
+        }        
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+      
+        .stats-btn {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            position: relative;
+        }
+      
+        .stats-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+      
+        .main-content {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 30px;
+            align-items: start;
+            width: 100%;
+        }
+      
+        .sidebar {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 25px;
+            box-shadow: var(--shadow-light);
+            position: sticky;
+            top: 20px;
+        }
+      
+        .nav-tabs {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+      
+        .nav-tab {
+            background: none;
+            border: none;
+            padding: 16px 20px;
+            text-align: left;
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+      
+        .nav-tab:hover {
+            background: rgba(33, 150, 243, 0.08);
+            color: var(--primary-blue);
+            transform: translateX(5px);
+        }
+      
+        .nav-tab.active {
+            background: var(--primary-blue);
+            color: white;
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+      
+        .content-area {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            box-shadow: var(--shadow-light);
+            min-height: 600px;
+            min-width: 0;
+            overflow: hidden;
+        }
+      
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+      
+        .tab-content.active {
+            display: block;
+        }
+      
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+      
+        .section-title {
+            font-size: 1.8rem;
+            color: var(--primary-blue);
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-light);
+            font-weight: 600;
+        }
+      
+        .config-grid {
+            display: grid;
+            gap: 25px;
+        }
+      
+        .config-card {
+            background: var(--background-light);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+      
+        .config-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary-blue);
+            transition: width 0.3s ease;
+        }
+      
+        .config-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
+        }
+      
+        .config-card:hover::before {
+            width: 6px;
+        }
+      
+        .param-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+      
+        .param-description {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+      
+        .input-group {
+            margin-bottom: 20px;
+        }
+      
+        input, select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid var(--border-light);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: white;
+        }
+      
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+      
+        select {
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23546e7a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 40px;
+        }
+      
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 15px;
+        }
+      
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 44px;
+        }
+      
+        .btn-primary {
+            background: var(--primary-blue);
+            color: white;
+        }
+      
+        .btn-primary:hover {
+            background: var(--primary-blue-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+      
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #2E7D32;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(66, 165, 245, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--accent-red);
+            color: white;
+        }
+      
+        .btn-danger:hover {
+            background: var(--accent-red-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 82, 82, 0.3);
+        }
+      
+        .global-actions {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+      
+        .reset-all-btn {
+            background: var(--accent-red);
+            color: white;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(255, 82, 82, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 44px;
+            white-space: nowrap;
+        }
+      
+        .reset-all-btn:hover {
+            background: var(--accent-red-hover);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px rgba(255, 82, 82, 0.4);
+        }
+      
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            padding: 12px 20px;
+            border-radius: var(--radius-sm);
+            background: white;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            z-index: 9999;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 500px;
+            width: auto;
+            min-width: 300px;
+            max-height: 70vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.5;
+            backdrop-filter: blur(10px);
+            pointer-events: none;
+            border-left: 4px solid transparent;
+        }
+      
+        .notification.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
+      
+        .notification.success {
+            border-left-color: var(--success-color);
+            background: linear-gradient(135deg, #DEF0FF 0%, #ffffff 100%);
+            border: 1px solid rgba(66, 165, 245, 0.2);
+        }
+      
+        .notification.error {
+            border-left-color: var(--accent-red);
+            background: linear-gradient(135deg, #FFEBEE 0%, #ffffff 100%);
+            border: 1px solid rgba(244, 67, 54, 0.2);
+        }
+        
+        .notification-content {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        
+        .notification-content::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .notification-content::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+            border-radius: 2px;
+        }
+        
+        .notification-content::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 2px;
+        }
+      
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+            position: relative;
+        }
+      
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+      
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+      
+        @media (max-width: 1200px) {
+            .app-container {
+                padding: 15px;
+            }
+            
+            .content-area {
+                padding: 30px;
+            }
+        }
+      
+        @media (max-width: 1024px) {
+            .main-content {
+                flex-direction: column;
+                display: flex;
+            }
+          
+            .sidebar {
+                position: static;
+                margin-bottom: 20px;
+                width: 100%;
+            }
+          
+            .nav-tabs {
+                flex-direction: row;
+                overflow-x: auto;
+                padding-bottom: 10px;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+            }
+          
+            .nav-tab {
+                white-space: nowrap;
+                flex: 1;
+                justify-content: center;
+                padding: 16px 20px;
+                min-width: 100px;
+            }
+
+            .content-area {
+                width: 100%;
+                min-height: auto;
+            }
+        }
+      
+        @media (max-width: 768px) {
+            html {
+                font-size: 15px;
+            }
+          
+            .app-container {
+                padding: 12px;
+            }
+          
+            .header {
+                padding: 20px;
+                border-radius: var(--radius-md);
+                margin-bottom: 20px;
+            }
+          
+            .header-title {
+                font-size: 1.6rem;
+            }
+          
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+          
+            .header-actions {
+                position: static;
+                justify-content: center;
+                width: 100%;
+                margin-top: 10px;
+            }
+          
+            .stats-btn {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+            }
+          
+            .content-area {
+                padding: 20px;
+                border-radius: var(--radius-md);
+            }
+          
+            .section-title {
+                font-size: 1.5rem;
+                margin-bottom: 20px;
+            }
+          
+            .config-grid {
+                gap: 15px;
+            }
+          
+            .config-card {
+                padding: 20px;
+                border-radius: var(--radius-sm);
+            }
+          
+            .param-title {
+                font-size: 1.1rem;
+            }
+          
+            .btn-group {
+                flex-direction: column;
+            }
+      
+            .btn {
+                min-height: 48px;
+                font-size: 1rem;
+            }
+          
+            .global-actions {
+                bottom: calc(20px + env(safe-area-inset-bottom));
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                width: auto;
+            }
+          
+            .reset-all-btn {
+                width: auto;
+                padding: 14px 24px;
+                font-size: 1rem;
+                border-radius: 50px;
+                min-height: 48px;
+                box-shadow: 0 4px 20px rgba(255, 82, 82, 0.4);
+            }
+            
+            .notification {
+                max-width: 90vw;
+                padding: 10px 16px;
+                top: 80px;
+                font-size: 13px;
+            }
+        }
+      
+        @media (max-width: 480px) {
+            html {
+                font-size: 14px;
+            }
+          
+            .header-title {
+                font-size: 1.4rem;
+            }
+          
+            .section-title {
+                font-size: 1.3rem;
+            }
+          
+            .config-card {
+                padding: 15px;
+            }
+          
+            .nav-tab {
+                padding: 14px 16px;
+                font-size: 0.9rem;
+            }
+          
+            input, select {
+                padding: 12px 14px;
+                font-size: 16px;
+            }
+            
+            .global-actions {
+                bottom: calc(15px + env(safe-area-inset-bottom));
+            }
+            
+            .notification {
+                top: 70px;
+                max-width: 90vw;
+                padding: 8px 14px;
+                font-size: 12px;
+            }
+        }
+        
+        .config-card {
+            will-change: transform;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <div class="header-content">
+                <h1 class="header-title">P2T 参数配置</h1>
+                <div class="header-actions">
+                    <a href="/stats?token={{.Token}}" class="stats-btn">
+                        📊 查看统计数据
+                    </a>
+                </div>
+            </div>
+        </div>
+      
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="nav-tabs">
+                    <button class="nav-tab active" data-tab="basic">
+                        ⚙️ 基础配置
+                    </button>
+                    <button class="nav-tab" data-tab="advanced">
+                        🔧 高级配置
+                    </button>
+                    <button class="nav-tab" data-tab="expert">
+                        🚀 进阶配置
+                    </button>
+                </div>
+            </div>
+          
+            <div class="content-area">
+                <div id="basic" class="tab-content active">
+                    <h2 class="section-title">基础配置</h2>
+                    <div class="config-grid">
+                        <div class="config-card">
+                            <h3 class="param-title">PANSOU_API_URLS</h3>
+                            <div class="param-description">
+                                多个API地址用逗号分隔，用于负载均衡。例如: https://api1.example.com,https://api2.example.com
+                            </div>
+                            <div class="input-group">
+                                <input type="text" id="PANSOU_API_URLS" value="{{.PansouAPIURLs}}" placeholder="多个API地址用逗号分隔">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="PANSOU_API_URLS">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="PANSOU_API_URLS">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">PANSOU_PG_CLOUD_TYPES</h3>
+                            <div class="param-description">
+                                PG网盘类型，用逗号分隔
+                            </div>
+                            <div class="input-group">
+                                <input type="text" id="PANSOU_PG_CLOUD_TYPES" value="{{.PGCloudTypes}}" placeholder="如：aliyun,quark">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="PANSOU_PG_CLOUD_TYPES">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="PANSOU_PG_CLOUD_TYPES">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">PANSOU_ZX_CLOUD_TYPES</h3>
+                            <div class="param-description">
+                                真心网盘类型，用逗号分隔
+                            </div>
+                            <div class="input-group">
+                                <input type="text" id="PANSOU_ZX_CLOUD_TYPES" value="{{.ZXCloudTypes}}" placeholder="如：baidu,aliyun">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="PANSOU_ZX_CLOUD_TYPES">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="PANSOU_ZX_CLOUD_TYPES">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">MAX_LINKS_PER_TYPE</h3>
+                            <div class="param-description">
+                                每类网盘最大资源数量
+                            </div>
+                            <div class="input-group">
+                                <input type="number" id="MAX_LINKS_PER_TYPE" value="{{.MaxLinksPerType}}" placeholder="数字，如：20" min="1" max="100">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="MAX_LINKS_PER_TYPE">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="MAX_LINKS_PER_TYPE">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">APITIME</h3>
+                            <div class="param-description">
+                                Pansou API请求超时时间（秒），仅影响API请求，不影响整个任务
+                            </div>
+                            <div class="input-group">
+                                <input type="number" id="APITIME" value="{{.APITimeout}}" placeholder="API超时时间（秒），如：10" min="1" max="60">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="APITIME">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="APITIME">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+              
+                <div id="advanced" class="tab-content">
+                    <h2 class="section-title">高级配置</h2>
+                    <div class="config-grid">
+                        <div class="config-card">
+                            <h3 class="param-title">PG_IMAGE_PROXY_MODE</h3>
+                            <div class="param-description">
+                                PG图片显示模式：proxy(强制代理)、direct(直接链接)、none(不显示图片)
+                            </div>
+                            <div class="input-group">
+                                <select id="PG_IMAGE_PROXY_MODE">
+                                    <option value="proxy" {{if eq .PGImageProxyMode "proxy"}}selected{{end}}>proxy - 强制代理</option>
+                                    <option value="direct" {{if eq .PGImageProxyMode "direct"}}selected{{end}}>direct - 直接链接</option>
+                                    <option value="none" {{if eq .PGImageProxyMode "none"}}selected{{end}}>none - 不显示图片</option>
+                                </select>
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="PG_IMAGE_PROXY_MODE">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="PG_IMAGE_PROXY_MODE">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">ZX_IMAGE_PROXY_MODE</h3>
+                            <div class="param-description">
+                                ZX图片显示模式：proxy(强制代理)、direct(直接链接)、none(不显示图片)
+                            </div>
+                            <div class="input-group">
+                                <select id="ZX_IMAGE_PROXY_MODE">
+                                    <option value="proxy" {{if eq .ZXImageProxyMode "proxy"}}selected{{end}}>proxy - 强制代理</option>
+                                    <option value="direct" {{if eq .ZXImageProxyMode "direct"}}selected{{end}}>direct - 直接链接</option>
+                                    <option value="none" {{if eq .ZXImageProxyMode "none"}}selected{{end}}>none - 不显示图片</option>
+                                </select>
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="ZX_IMAGE_PROXY_MODE">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="ZX_IMAGE_PROXY_MODE">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">KEYWORDS</h3>
+                            <div class="param-description">
+                                关键词过滤，用逗号分隔
+                            </div>
+                            <div class="input-group">
+                                <input type="text" id="KEYWORDS" value="{{.Keywords}}" placeholder="用逗号分隔，如：4k,hdr,dolby">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="KEYWORDS">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="clear" data-param="KEYWORDS">
+                                    🗑️ 清空内容
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">CHANNELS</h3>
+                            <div class="param-description">
+                                频道配置，用逗号分隔
+                            </div>
+                            <div class="input-group">
+                                <input type="text" id="CHANNELS" value="{{.Channels}}" placeholder="用逗号分隔，如：channel1,channel2">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="CHANNELS">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="clear" data-param="CHANNELS">
+                                    🗑️ 清空内容
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">PLUGINS</h3>
+                            <div class="param-description">
+                                插件配置，用逗号分隔
+                            </div>
+                            <div class="input-group">
+                                <input type="text" id="PLUGINS" value="{{.Plugins}}" placeholder="用逗号分隔，如：plugin1,plugin2">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="PLUGINS">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="clear" data-param="PLUGINS">
+                                    🗑️ 清空内容
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+              
+                <div id="expert" class="tab-content">
+                    <h2 class="section-title">进阶配置</h2>
+                    <div class="config-grid">
+                        <div class="config-card" style="border-left: 4px solid var(--success-color);">
+                            <h3 class="param-title">GeoIP 数据库管理</h3>
+                            <div class="param-description">
+                                更新 MaxMind GeoLite2 城市数据库，用于提升IP地理位置识别准确率。
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-success" data-action="update-geoip">
+                                    🌍 在线更新 GeoIP 数据库
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="config-card">
+                            <h3 class="param-title">BLOCK_KEYWORDS_CONTAIN</h3>
+                            <div class="param-description">
+                                包含屏蔽关键词，多个用逗号分隔。搜索关键词包含这些词中的任意一个，将返回空结果。
+                            </div>
+                            <div class="input-group">
+                                <input type="text" id="BLOCK_KEYWORDS_CONTAIN" value="{{.BlockKeywordsContain}}" placeholder="如：违禁词,敏感词,非法词">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="BLOCK_KEYWORDS_CONTAIN">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="clear" data-param="BLOCK_KEYWORDS_CONTAIN">
+                                    🗑️ 清空内容
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="config-card">
+                            <h3 class="param-title">BLOCK_KEYWORDS_EXACT</h3>
+                            <div class="param-description">
+                                完全匹配屏蔽关键词，多个用逗号分隔。搜索关键词完全匹配这些词中的任意一个，将返回空结果。
+                            </div>
+                            <div class="input-group">
+                                <input type="text" id="BLOCK_KEYWORDS_EXACT" value="{{.BlockKeywordsExact}}" placeholder="如：测试,example,demo">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="BLOCK_KEYWORDS_EXACT">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="clear" data-param="BLOCK_KEYWORDS_EXACT">
+                                    🗑️ 清空内容
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="config-card">
+                            <h3 class="param-title">AUTO_BLOCK_IP</h3>
+                            <div class="param-description">
+                                是否自动封禁访问非白名单路径的IP。开启后，访问非白名单路径的IP将被永久加入黑名单。
+                            </div>
+                            <div class="input-group">
+                                <select id="AUTO_BLOCK_IP">
+                                    <option value="true" {{if .AutoBlockIP}}selected{{end}}>true - 开启自动封禁</option>
+                                    <option value="false" {{if not .AutoBlockIP}}selected{{end}}>false - 禁用 (默认)</option>
+                                </select>
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="AUTO_BLOCK_IP">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="AUTO_BLOCK_IP">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>                        
+
+                        <div class="config-card">
+                            <h3 class="param-title">WORKER_TASK_TIMEOUT</h3>
+                            <div class="param-description">
+                                Worker任务总超时时间（秒），影响包含链接检测的完整任务
+                            </div>
+                            <div class="input-group">
+                                <input type="number" id="WORKER_TASK_TIMEOUT" value="{{.WorkerTaskTimeout}}" placeholder="Worker任务总超时（秒），如：60" min="1" max="300">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="WORKER_TASK_TIMEOUT">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="WORKER_TASK_TIMEOUT">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">MAX_WORKERS</h3>
+                            <div class="param-description">
+                                最大并发数
+                            </div>
+                            <div class="input-group">
+                                <input type="number" id="MAX_WORKERS" value="{{.MaxWorkers}}" placeholder="最大并发数，如：50" min="1" max="100">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="MAX_WORKERS">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="MAX_WORKERS">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">LINK_CHECK_ENABLED</h3>
+                            <div class="param-description">
+                                是否启用链接有效性检测功能
+                            </div>
+                            <div class="input-group">
+                                <select id="LINK_CHECK_ENABLED">
+                                    <option value="true" {{if .LinkCheckEnabled}}selected{{end}}>true - 启用链接检测</option>
+                                    <option value="false" {{if not .LinkCheckEnabled}}selected{{end}}>false - 禁用链接检测</option>
+                                </select>
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="LINK_CHECK_ENABLED">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="LINK_CHECK_ENABLED">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">LINK_CHECK_WORKERS</h3>
+                            <div class="param-description">
+                                链接检测并发数
+                            </div>
+                            <div class="input-group">
+                                <input type="number" id="LINK_CHECK_WORKERS" value="{{.LinkCheckWorkers}}" placeholder="链接检测并发数，如：10" min="1" max="500">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="LINK_CHECK_WORKERS">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="LINK_CHECK_WORKERS">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">LINK_CHECK_TIMEOUT</h3>
+                            <div class="param-description">
+                                链接检测超时时间
+                            </div>
+                            <div class="input-group">
+                                <input type="number" id="LINK_CHECK_TIMEOUT" value="{{.LinkCheckTimeout}}" placeholder="链接检测超时时间（秒），如：15" min="1" max="60">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="LINK_CHECK_TIMEOUT">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="LINK_CHECK_TIMEOUT">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="config-card">
+                            <h3 class="param-title">LINK_CHECK_API_URL</h3>
+                            <div class="param-description">
+                                pancheck的 API 地址。留空则使用默认地址 (https://pancheck.banye.tech:7777)。
+                            </div>
+                            <div class="input-group">
+                                <input type="text" id="LINK_CHECK_API_URL" value="{{.LinkCheckAPIURL}}" placeholder="例如：http://127.0.0.1:8080">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="LINK_CHECK_API_URL">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="LINK_CHECK_API_URL">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="config-card">
+                            <h3 class="param-title">LINK_CHECK_MODE</h3>
+                            <div class="param-description">
+                                链接检测模式选择。自动降级会在pancheck失败时使用旧方式，提供更好的兼容性。
+                            </div>
+                            <div class="input-group">
+                                <select id="LINK_CHECK_MODE">
+                                    <option value="auto" {{if eq .LinkCheckMode "auto"}}selected{{end}}>自动降级 (pancheck失败使用旧方式)</option>
+                                    <option value="pancheck" {{if eq .LinkCheckMode "pancheck"}}selected{{end}}>只用pancheck (失败后全部标有效)</option>
+                                    <option value="legacy" {{if eq .LinkCheckMode "legacy"}}selected{{end}}>只用旧方式 (只检测夸克/阿里/UC)</option>
+                                </select>
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="LINK_CHECK_MODE">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="LINK_CHECK_MODE">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">LB_STRATEGY</h3>
+                            <div class="param-description">
+                                负载均衡策略：random(随机选择) | round_robin(轮询) | least_conn(最少错误) | response_time(响应时间优先)
+                            </div>
+                            <div class="input-group">
+                                <select id="LB_STRATEGY">
+                                    <option value="round_robin" {{if eq .LoadBalancerConfig.Strategy "round_robin"}}selected{{end}}>round_robin - 轮询(推荐)</option>
+                                    <option value="random" {{if eq .LoadBalancerConfig.Strategy "random"}}selected{{end}}>random - 随机(推荐)</option>
+                                    <option value="least_conn" {{if eq .LoadBalancerConfig.Strategy "least_conn"}}selected{{end}}>least_conn - 最少错误</option>
+                                    <option value="response_time" {{if eq .LoadBalancerConfig.Strategy "response_time"}}selected{{end}}>response_time - 响应时间优先</option>
+                                </select>
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="LB_STRATEGY">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="LB_STRATEGY">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">LB_HEALTH_CHECK</h3>
+                            <div class="param-description">
+                                是否启用API服务器健康检查
+                            </div>
+                            <div class="input-group">
+                                <select id="LB_HEALTH_CHECK">
+                                    <option value="true" {{if .LoadBalancerConfig.HealthCheck}}selected{{end}}>true - 启用健康检查</option>
+                                    <option value="false" {{if not .LoadBalancerConfig.HealthCheck}}selected{{end}}>false - 禁用健康检查</option>
+                                </select>
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="LB_HEALTH_CHECK">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="LB_HEALTH_CHECK">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">LB_CHECK_INTERVAL</h3>
+                            <div class="param-description">
+                                健康检查间隔(秒)
+                            </div>
+                            <div class="input-group">
+                                <input type="number" id="LB_CHECK_INTERVAL" value="{{.LoadBalancerConfig.CheckInterval}}" placeholder="健康检查间隔(秒)，如：30" min="10" max="300">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="LB_CHECK_INTERVAL">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="LB_CHECK_INTERVAL">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                      
+                        <div class="config-card">
+                            <h3 class="param-title">LB_TIMEOUT</h3>
+                            <div class="param-description">
+                                健康检查超时时间(秒)
+                            </div>
+                            <div class="input-group">
+                                <input type="number" id="LB_TIMEOUT" value="{{.LoadBalancerConfig.Timeout}}" placeholder="健康检查超时时间(秒)，如：5" min="1" max="30">
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" data-action="save" data-param="LB_TIMEOUT">
+                                    💾 保存修改
+                                </button>
+                                <button class="btn btn-danger" data-action="reset" data-param="LB_TIMEOUT">
+                                    🔄 重置默认
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+  
+    <div class="global-actions">
+        <button class="reset-all-btn" data-action="reset-all">
+            🔄 全部重置为默认值
+        </button>
+    </div>
+  
+    <div id="notification" class="notification">
+        <div class="notification-content"></div>
+    </div>
+  
+    <script>
+        class ConfigManager {
+            constructor() {
+                this.defaultValues = {{.DefaultsJSON}};
+                if (!this.defaultValues["BLOCK_KEYWORDS_CONTAIN"]) {
+                    this.defaultValues["BLOCK_KEYWORDS_CONTAIN"] = "";
+                }
+                if (!this.defaultValues["BLOCK_KEYWORDS_EXACT"]) {
+                    this.defaultValues["BLOCK_KEYWORDS_EXACT"] = "";
+                }
+                this.notificationTimeout = null;
+                this.init();
+            }
+            
+            init() {
+                this.bindEvents();
+                this.enhanceInputs();
+                this.preventDoubleSubmit();
+            }
+            
+            bindEvents() {
+                document.querySelector('.nav-tabs').addEventListener('click', (e) => {
+                    const tab = e.target.closest('.nav-tab');
+                    if (!tab) return;
+                    
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    document.getElementById(tab.dataset.tab).classList.add('active');
+                    
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+                
+                document.addEventListener('click', (e) => {
+                    const button = e.target.closest('[data-action]');
+                    if (!button) return;
+                    
+                    e.preventDefault();
+                    if (button.classList.contains('loading')) return;
+                    
+                    const action = button.dataset.action;
+                    const param = button.dataset.param;
+                    
+                    switch(action) {
+                        case 'save':
+                            this.saveParam(param, button);
+                            break;
+                        case 'reset':
+                            this.resetParam(param);
+                            break;
+                        case 'clear':
+                            this.clearParam(param);
+                            break;
+                        case 'update-geoip':
+                            this.updateGeoIP(button);
+                            break;
+                        case 'reset-all':
+                            this.resetAllConfig();
+                            break;
+                    }
+                });
+                
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') this.hideNotification();
+                });
+            }
+            
+            enhanceInputs() {
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                    document.addEventListener('touchstart', (e) => {
+                        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+                            e.target.style.fontSize = '16px';
+                        }
+                    }, { passive: true });
+                }
+            }
+            
+            preventDoubleSubmit() {
+                const buttons = document.querySelectorAll('button[data-action]');
+                buttons.forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        if (this.classList.contains('loading')) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            return false;
+                        }
+                    });
+                });
+            }
+            
+            async saveParam(paramKey, button) {
+                this.setLoading(button, true);
+                
+                const input = document.getElementById(paramKey);
+                let value = input ? input.value.trim() : '';
+                
+                const emptyAllowed = ['KEYWORDS', 'CHANNELS', 'PLUGINS', 'BLOCK_KEYWORDS_CONTAIN', 'BLOCK_KEYWORDS_EXACT'];
+                if (!value && !emptyAllowed.includes(paramKey)) {
+                    this.showNotification(`${paramKey} 不能为空`, false);
+                    this.setLoading(button, false);
+                    return;
+                }
+                
+                try {
+                    const response = await this.apiRequest('/api/config/set', {
+                        method: 'POST',
+                        body: new URLSearchParams({ [paramKey]: value })
+                    });
+                    
+                    if (response.success) {
+                        const resultText = response.results?.[paramKey] || '';
+                        const isError = resultText.includes('错误') || resultText.includes('失败') || resultText.includes('无效');
+                        this.showNotification(
+                            `${isError ? '❌' : '✅'} ${paramKey} ${isError ? '修改失败' : '修改成功'}${resultText ? `:\n${resultText}` : '!'}`,
+                            !isError
+                        );
+                    } else {
+                        this.showNotification(`❌ ${paramKey} 修改失败：${response.message || '未知错误'}`, false);
+                    }
+                } catch (error) {
+                    this.handleApiError(error, paramKey);
+                } finally {
+                    this.setLoading(button, false);
+                }
+            }
+            
+            resetParam(key) {
+                const input = document.getElementById(key);
+                if (input) {
+                    input.value = this.defaultValues[key] || '';
+                    this.showNotification(`🔄 ${key} 已重置为默认值`, true);
+                }
+            }
+            
+            clearParam(key) {
+                const input = document.getElementById(key);
+                if (input) {
+                    input.value = '';
+                    this.showNotification(`🗑️ ${key} 已清空`, true);
+                }
+            }
+            
+            async updateGeoIP(button) {
+                if (!confirm('确定要更新 GeoIP 数据库吗？下载可能需要一些时间。')) return;
+                
+                this.setLoading(button, true, '下载中...');
+                
+                try {
+                    const response = await this.apiRequest('/api/geoip/update', {
+                        method: 'POST'
+                    });
+                    
+                    this.showNotification(
+                        response.success ? `✅ ${response.message}` : `❌ ${response.message || '更新失败'}`,
+                        response.success
+                    );
+                } catch (error) {
+                    this.showNotification('❌ 网络请求失败', false);
+                } finally {
+                    this.setLoading(button, false);
+                }
+            }
+            
+            async resetAllConfig() {
+                if (!confirm('确定要重置所有配置为默认值吗？此操作不可撤销！')) return;
+                
+                const resetBtn = document.querySelector('[data-action="reset-all"]');
+                this.setLoading(resetBtn, true);
+                
+                try {
+                    const response = await this.apiRequest('/api/config/reset', {
+                        method: 'POST'
+                    });
+                    
+                    if (response.success) {
+                        this.showNotification('✅ 全部重置成功！页面将重新加载...', true);
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        this.showNotification(`❌ 重置失败：${response.message || '未知错误'}`, false);
+                        this.setLoading(resetBtn, false);
+                    }
+                } catch (error) {
+                    this.handleApiError(error, '重置');
+                    this.setLoading(resetBtn, false);
+                }
+            }
+            
+            async apiRequest(endpoint, options = {}) {
+                const token = this.getToken();
+                let url = this.getBasePath() + endpoint;
+                
+                if (token) {
+                    url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                }
+                
+                const defaultOptions = {
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    ...options
+                };
+                
+                const response = await fetch(url, defaultOptions);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+            
+            handleApiError(error, context) {
+                console.error('API Error:', error);
+                
+                let message = `❌ ${context} 操作失败！\n`;
+                
+                if (error.message.includes('Failed to fetch')) {
+                    message += '网络连接失败，请检查服务器状态';
+                } else if (error.message.includes('HTTP 401')) {
+                    message += '没有权限，请检查token参数';
+                } else if (error.message.includes('HTTP 404')) {
+                    message += '接口不存在，请检查URL路径';
+                } else if (error.message.includes('HTTP 500')) {
+                    message += '服务器内部错误';
+                } else {
+                    message += '错误信息: ' + error.message;
+                }
+                
+                this.showNotification(message, false);
+            }
+            
+            showNotification(message, isSuccess) {
+                const notification = document.getElementById('notification');
+                const content = notification.querySelector('.notification-content');
+                
+                if (this.notificationTimeout) {
+                    clearTimeout(this.notificationTimeout);
+                    this.notificationTimeout = null;
+                }
+                
+                const formattedMessage = message
+                    .replace(/\n/g, '<br>')
+                    .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
+                    .replace(/  /g, '&nbsp;&nbsp;');
+                
+                content.innerHTML = formattedMessage;
+                notification.className = `notification ${isSuccess ? 'success' : 'error'} show`;
+                content.scrollTop = 0;
+                
+                const duration = Math.min(5000, Math.max(2000, message.length * 30));
+                
+                this.notificationTimeout = setTimeout(() => {
+                    notification.classList.remove('show');
+                }, duration);
+                
+                notification.onclick = () => {
+                    notification.classList.remove('show');
+                    if (this.notificationTimeout) {
+                        clearTimeout(this.notificationTimeout);
+                        this.notificationTimeout = null;
+                    }
+                };
+            }
+            
+            hideNotification() {
+                const notification = document.getElementById('notification');
+                notification.classList.remove('show');
+                if (this.notificationTimeout) {
+                    clearTimeout(this.notificationTimeout);
+                    this.notificationTimeout = null;
+                }
+            }
+            
+            setLoading(button, isLoading, loadingText = '处理中...') {
+                if (isLoading) {
+                    button.classList.add('loading');
+                    button.dataset.originalText = button.innerHTML;
+                    button.innerHTML = loadingText;
+                    button.disabled = true;
+                } else {
+                    button.classList.remove('loading');
+                    button.innerHTML = button.dataset.originalText || '💾 保存修改';
+                    button.disabled = false;
+                }
+            }
+            
+            getBasePath() {
+                const path = window.location.pathname;
+                return path.endsWith('/config') ? path.replace('/config', '') : '';
+            }
+            
+            getToken() {
+                const params = new URLSearchParams(window.location.search);
+                return params.get('token');
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            new ConfigManager();
+            setTimeout(() => window.scrollTo(0, 0), 100);
+        });
+    </script>
+</body>
+</html>

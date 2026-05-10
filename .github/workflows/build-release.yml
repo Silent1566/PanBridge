@@ -1,0 +1,122 @@
+name: build-and-release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests
+        run: go test -v ./...
+
+  build:
+    name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+            archive: zip
+          - goos: linux
+            goarch: amd64
+            ext: ""
+            archive: tar.gz
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+            archive: tar.gz
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+            archive: tar.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Prepare names
+        shell: bash
+        run: |
+          APP_NAME="panbridge"
+          TARGET="${APP_NAME}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          BIN_NAME="${APP_NAME}${{ matrix.ext }}"
+          ARCHIVE_NAME="${TARGET}.${{ matrix.archive }}"
+          echo "APP_NAME=${APP_NAME}" >> "$GITHUB_ENV"
+          echo "TARGET=${TARGET}" >> "$GITHUB_ENV"
+          echo "BIN_NAME=${BIN_NAME}" >> "$GITHUB_ENV"
+          echo "ARCHIVE_NAME=${ARCHIVE_NAME}" >> "$GITHUB_ENV"
+
+      - name: Build
+        shell: bash
+        run: |
+          mkdir -p "dist/${TARGET}"
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "dist/${TARGET}/${BIN_NAME}" .
+          cp README.md "dist/${TARGET}/README.md"
+
+      - name: Package zip
+        if: matrix.archive == 'zip'
+        shell: bash
+        run: |
+          cd dist
+          zip -r "${ARCHIVE_NAME}" "${TARGET}" >/dev/null
+
+      - name: Package tar.gz
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          tar -C dist -czf "dist/${ARCHIVE_NAME}" "${TARGET}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.TARGET }}
+          path: dist/${{ env.ARCHIVE_NAME }}
+
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec cp {} release-assets/ \;
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
