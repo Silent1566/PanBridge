@@ -76,8 +76,50 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 18px;
             position: relative;
             z-index: 2;
+        }
+
+        .header-main {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .header-subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .header-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .header-link {
+            color: white;
+            text-decoration: none;
+            background: rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 10px 16px;
+            border-radius: 999px;
+            font-weight: 600;
+            transition: all 0.25s ease;
+        }
+
+        .header-link:hover {
+            background: rgba(255, 255, 255, 0.28);
+            transform: translateY(-1px);
         }
       
         .header-title {
@@ -544,10 +586,30 @@
         }
         
         .table-scroll-container {
-            max-height: 500px;
+            max-height: 420px;
             overflow-y: auto;
             border: 1px solid var(--border-light);
             border-radius: var(--radius-sm);
+        }
+
+        .table-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: var(--primary-blue);
+            font-size: 12px;
+            font-weight: 600;
         }
         
         .empty-state {
@@ -786,19 +848,28 @@
     <div class="app-container">
         <div class="header">
             <div class="header-content">
-                <h1 class="header-title">📊 服务运行统计</h1>
-                <div class="time-filter" id="timeFilter">
-                    <button data-range="all">全部</button>
-                    <button data-range="1h" class="active">最近1小时</button>
-                    <button data-range="6h">最近6小时</button>
-                    <button data-range="12h">最近12小时</button>
-                    <button data-range="24h">最近24小时</button>
-                    <button data-range="7d">最近7天</button>
-                    <button data-range="30d">最近30天</button>
+                <div class="header-main">
+                    <h1 class="header-title">Service Statistics</h1>
+                    <div class="header-subtitle">Overview of service health, traffic trends and blacklist operations.</div>
+                </div>
+                <div class="header-right">
+                    <div class="header-links">
+                        <a href="/config" class="header-link">Config</a>
+                        <a href="/admin/logout" class="header-link">Logout</a>
+                    </div>
+                    <div class="time-filter" id="timeFilter">
+                        <button data-range="all">All</button>
+                        <button data-range="1h" class="active">1h</button>
+                        <button data-range="6h">6h</button>
+                        <button data-range="12h">12h</button>
+                        <button data-range="24h">24h</button>
+                        <button data-range="7d">7d</button>
+                        <button data-range="30d">30d</button>
+                    </div>
                 </div>
             </div>
-        </div>
       
+        </div>
         <div class="metrics-grid" id="metricsGrid">
             <div class="metric-card">
                 <div class="label">总请求数</div>
@@ -1174,7 +1245,6 @@
                 const countElement = document.getElementById('requestCount');
                 
                 tbody.innerHTML = '';
-                countElement.textContent = requests.length.toString();
                 
                 if (requests.length === 0) {
                     tbody.innerHTML = `
@@ -1186,7 +1256,10 @@
                     return;
                 }
                 
-                requests.forEach(req => {
+                const visibleRequests = requests.slice(0, 120);
+                countElement.textContent = requests.length.toString();
+
+                visibleRequests.forEach(req => {
                     const tr = document.createElement('tr');
                     const statusClass = this.getStatusClass(req.statusCode);
                     const latencyMs = (req.latency / 1000000).toFixed(2);

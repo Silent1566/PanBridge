@@ -7640,6 +7640,7 @@ func (app *Application) handleConfigPage(w http.ResponseWriter, r *http.Request)
 		LinkCheckTimeout     int
 		LoadBalancerConfig   LoadBalancerConfig
 		DefaultsJSON         template.JS
+		Token                string
 		AutoBlockIP          bool
 		LinkCheckAPIURL      string
 		LinkCheckMode        string
@@ -7663,6 +7664,7 @@ func (app *Application) handleConfigPage(w http.ResponseWriter, r *http.Request)
 		LinkCheckTimeout:     cfg.LinkCheckTimeout,
 		LoadBalancerConfig:   cfg.LoadBalancerConfig,
 		DefaultsJSON:         template.JS(cachedDefaultsJSON),
+		Token:                "",
 		AutoBlockIP:          cfg.AutoBlockIP,
 		LinkCheckAPIURL:      cfg.LinkCheckAPIURL,
 		LinkCheckMode:        cfg.LinkCheckMode,
