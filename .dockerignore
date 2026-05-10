@@ -1,0 +1,13 @@
+.git
+.github
+.idea
+.vscode
+dist
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.exe
+panbridge
+GeoLite2-City.mmdb
+GeoLite2-City.mmdb.tmp

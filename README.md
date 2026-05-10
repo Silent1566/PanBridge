@@ -66,6 +66,34 @@ go test -v ./...
 - 自动上传构建产物
 - 当推送标签 `v*` 时，自动创建 Release 并附带压缩包
 
+## GitHub 自动构建 Docker 镜像
+
+项目已内置 Docker 镜像工作流：
+
+- 工作流文件：`.github/workflows/docker-image.yml`
+- 镜像仓库：`ghcr.io/<github用户名>/<仓库名>`
+- 触发条件：
+  - push 到 `main`
+  - push tag `v*`
+  - PR 时只构建校验，不推送
+
+### 常用镜像标签
+
+- `ghcr.io/silent1566/panbridge:latest`（默认分支）
+- `ghcr.io/silent1566/panbridge:main`
+- `ghcr.io/silent1566/panbridge:sha-<commit>`
+- `ghcr.io/silent1566/panbridge:v1.0.0`（tag 发布）
+
+### 运行示例
+
+```bash
+docker run -d \
+  --name panbridge \
+  -p 10199:10199 \
+  -v panbridge-data:/app/data \
+  ghcr.io/silent1566/panbridge:latest
+```
+
 ### 发布示例
 
 ```bash
