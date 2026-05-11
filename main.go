@@ -2181,14 +2181,18 @@ func (app *Application) MonitoringMiddleware(next http.Handler) http.Handler {
 			assessment := app.probeRiskManager.Observe(
 				clientIP, requestPath, whitelistDecision.Scene, userAgent, r.Method, honeypotDecision,
 			)
-			app.logger.Warn("检测到非白名单路径访问: scene=%s, ip=%s, path=%s, honeypot=%v, score=+%d/%d, action=%s, reason=%s",
-				assessment.Scene, assessment.IP, assessment.Path, assessment.IsHoneypot,
+			app.logger.Warn("检测到非白名单路径访问: scene=%s, method=%s, ip=%s, path=%s, honeypot=%v, score=+%d/%d, action=%s, reason=%s",
+				assessment.Scene, r.Method, assessment.IP, assessment.Path, assessment.IsHoneypot,
 				assessment.ScoreDelta, assessment.TotalScore, assessment.Action, assessment.Reason)
 			if cfg.AutoBlockIP && assessment.Action != "observe" {
 				blockReason := fmt.Sprintf("%s: %s", assessment.Reason, requestPath)
-				app.blacklistManager.Block(clientIP, "ip", assessment.Duration, blockReason)
-				app.logger.Info("已按风险评分自动封禁IP: scene=%s, ip=%s, action=%s, duration=%s, total_score=%d",
-					assessment.Scene, assessment.IP, assessment.Action, assessment.Duration, assessment.TotalScore)
+				if err := app.blacklistManager.Block(clientIP, "ip", assessment.Duration, blockReason); err != nil {
+					app.logger.Warn("自动封禁IP失败: scene=%s, method=%s, ip=%s, action=%s, duration=%s, total_score=%d, err=%v",
+						assessment.Scene, r.Method, assessment.IP, assessment.Action, assessment.Duration, assessment.TotalScore, err)
+				} else {
+					app.logger.Info("已按风险评分自动封禁IP: scene=%s, method=%s, ip=%s, action=%s, duration=%s, total_score=%d",
+						assessment.Scene, r.Method, assessment.IP, assessment.Action, assessment.Duration, assessment.TotalScore)
+				}
 			}
 			http.Error(w, "Not Found", http.StatusNotFound)
 			return
@@ -2308,7 +2312,7 @@ func (bm *BlacklistManager) IsBlocked(checkType, value string) bool {
 	return true
 }
 
-func (bm *BlacklistManager) Block(value string, blType string, duration time.Duration, reason string) {
+func (bm *BlacklistManager) Block(value string, blType string, duration time.Duration, reason string) error {
 	var expiry time.Time
 	if duration == 0 {
 		expiry = time.Time{}
@@ -2328,11 +2332,12 @@ VALUES (?, ?, ?, ?, ?)
 `, value, blType, reason, nullTime(expiry), entry.CreatedAt)
 	if err != nil {
 		bm.logger.Error("写入黑名单DB失败", err)
-		return
+		return err
 	}
 	key := bm.generateKey(blType, value)
 	bm.entries.Store(key, entry)
 	bm.logger.Info("封禁: 类型=%s, 值=%s, 原因: %s, 到期: %v", blType, value, reason, expiry)
+	return nil
 }
 
 func (bm *BlacklistManager) BatchBlock(entries []*BlacklistEntry) {
@@ -7268,7 +7273,10 @@ func (app *Application) handleBlock(w http.ResponseWriter, r *http.Request) {
 	if reason == "" {
 		reason = "手动封禁"
 	}
-	app.blacklistManager.Block(data.Value, data.Type, duration, reason)
+	if err := app.blacklistManager.Block(data.Value, data.Type, duration, reason); err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "封禁失败")
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": fmt.Sprintf("%s %s has been blocked for %s", data.Type, data.Value, data.Duration),

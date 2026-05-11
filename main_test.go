@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -156,6 +158,40 @@ func TestMonitoringMiddlewareNoAutoBlockWhenDisabled(t *testing.T) {
 	}
 }
 
+func TestMonitoringMiddlewareDoesNotLogAutoBlockSuccessWhenBlockWriteFails(t *testing.T) {
+	app := newTestApplication(t, true)
+	var logBuf bytes.Buffer
+	app.logger.SetLevel(WarnLevel)
+	app.logger.SetOutput(&logBuf)
+	if err := app.db.Close(); err != nil {
+		t.Fatalf("close db failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/wp-login.php", nil)
+	req.RemoteAddr = "127.0.0.1:4567"
+	req.Header.Set("User-Agent", "curl/8.0")
+	rec := httptest.NewRecorder()
+
+	handler := app.MonitoringMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status mismatch: got %d want %d", rec.Code, http.StatusNotFound)
+	}
+	if app.blacklistManager.IsBlocked("ip", "127.0.0.1") {
+		t.Fatalf("expected IP not to be blocked when blacklist write fails")
+	}
+	logOutput := logBuf.String()
+	if !strings.Contains(logOutput, "自动封禁IP失败") {
+		t.Fatalf("expected auto block failure log, got: %s", logOutput)
+	}
+	if strings.Contains(logOutput, "已按风险评分自动封禁IP") {
+		t.Fatalf("did not expect auto block success log when blacklist write fails: %s", logOutput)
+	}
+}
+
 func TestMonitoringMiddlewareAllowsLegitPGPath(t *testing.T) {
 	app := newTestApplication(t, true)
 	req := httptest.NewRequest(http.MethodPost, "/s/", nil)
@@ -177,6 +213,35 @@ func TestMonitoringMiddlewareAllowsLegitPGPath(t *testing.T) {
 	}
 	if app.blacklistManager.IsBlocked("ip", "127.0.0.1") {
 		t.Fatalf("expected legit PG path not to be blocked")
+	}
+}
+
+func TestHandleBlockReturns500WhenDBWriteFails(t *testing.T) {
+	app := newTestApplication(t, true)
+	if err := app.db.Close(); err != nil {
+		t.Fatalf("close db failed: %v", err)
+	}
+
+	body, err := json.Marshal(BlockRequest{
+		Value:    "127.0.0.1",
+		Type:     "ip",
+		Duration: "1h",
+		Reason:   "test",
+	})
+	if err != nil {
+		t.Fatalf("marshal request failed: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/blacklist/block", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	app.handleBlock(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status mismatch: got %d want %d", rec.Code, http.StatusInternalServerError)
+	}
+	if strings.Contains(rec.Body.String(), "\"success\":true") {
+		t.Fatalf("expected failure response body, got %s", rec.Body.String())
 	}
 }
 
