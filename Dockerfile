@@ -1,7 +1,10 @@
-FROM golang:1.25-alpine AS builder
+ARG BUILDPLATFORM
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
 ARG TARGETVARIANT
 
 WORKDIR /src
@@ -12,6 +15,7 @@ RUN go mod download
 COPY . .
 
 RUN set -eux; \
+    echo "Building for ${TARGETPLATFORM} on ${BUILDPLATFORM}"; \
     export GOOS="${TARGETOS}"; \
     export GOARCH="${TARGETARCH}"; \
     if [ "${TARGETARCH}" = "arm" ] && [ -n "${TARGETVARIANT}" ]; then export GOARM="${TARGETVARIANT#v}"; fi; \
