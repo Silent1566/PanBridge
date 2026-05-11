@@ -1,5 +1,9 @@
 FROM golang:1.25-alpine AS builder
 
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ARG TARGETVARIANT
+
 WORKDIR /src
 
 COPY go.mod go.sum ./
@@ -7,8 +11,11 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath -ldflags="-s -w" -o /out/panbridge .
+RUN set -eux; \
+    export GOOS="${TARGETOS}"; \
+    export GOARCH="${TARGETARCH}"; \
+    if [ "${TARGETARCH}" = "arm" ] && [ -n "${TARGETVARIANT}" ]; then export GOARM="${TARGETVARIANT#v}"; fi; \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/panbridge .
 
 FROM alpine:3.22
 

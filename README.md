@@ -198,6 +198,7 @@ docker run -d \
 
 - 工作流文件：`.github/workflows/docker-image.yml`
 - 镜像仓库：`ghcr.io/<github用户名>/<仓库名>`
+- 推送的多架构镜像：`linux/amd64`、`linux/arm64`
 - 触发条件：
   - push 到 `main`
   - push tag `v*`
