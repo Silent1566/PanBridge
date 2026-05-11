@@ -2144,6 +2144,11 @@ func (app *Application) MonitoringMiddleware(next http.Handler) http.Handler {
 		userAgent := r.Header.Get("User-Agent")
 		whitelistDecision := evaluateWhitelist(r.URL.Path)
 		requestPath := whitelistDecision.Path
+		if !whitelistDecision.IsWhitelisted && r.Method == http.MethodPost && whitelistDecision.Scene == "pg" && strings.HasPrefix(strings.ToLower(requestPath), "/s/") {
+			whitelistDecision.IsWhitelisted = true
+			whitelistDecision.MatchType = "compat"
+			whitelistDecision.Rule = "POST /s/*"
+		}
 		if app.blacklistManager.IsBlocked("ip", clientIP) && !strings.HasPrefix(requestPath, "/api/blacklist/unblock") {
 			app.logger.Warn("拒绝黑名单IP访问: IP=%s, 路径=%s", clientIP, requestPath)
 			http.Error(w, "拒绝访问", http.StatusForbidden)

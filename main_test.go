@@ -74,7 +74,7 @@ func TestEvaluateHoneypotPath(t *testing.T) {
 
 func TestMonitoringMiddlewareUnknownPathObservedBeforeBlock(t *testing.T) {
 	app := newTestApplication(t, true)
-	req := httptest.NewRequest(http.MethodPost, "/s/evil", nil)
+	req := httptest.NewRequest(http.MethodGet, "/s/evil", nil)
 	req.RemoteAddr = "127.0.0.1:4567"
 	rec := httptest.NewRecorder()
 	called := false
@@ -93,6 +93,27 @@ func TestMonitoringMiddlewareUnknownPathObservedBeforeBlock(t *testing.T) {
 	}
 	if app.blacklistManager.IsBlocked("ip", "127.0.0.1") {
 		t.Fatalf("expected single unknown path to be observed but not blocked immediately")
+	}
+}
+
+func TestMonitoringMiddlewareAllowsCompatPGSubpathPost(t *testing.T) {
+	app := newTestApplication(t, true)
+	req := httptest.NewRequest(http.MethodPost, "/s/evil", nil)
+	req.RemoteAddr = "127.0.0.1:4567"
+	rec := httptest.NewRecorder()
+	called := false
+
+	handler := app.MonitoringMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	handler.ServeHTTP(rec, req)
+
+	if !called {
+		t.Fatalf("expected compat PG subpath POST to reach next handler")
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status mismatch: got %d want %d", rec.Code, http.StatusOK)
 	}
 }
 
